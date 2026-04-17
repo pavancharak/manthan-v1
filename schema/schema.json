@@ -1,0 +1,13 @@
+{
+  "schema_version": "v1",
+  "fields": {
+    "isApproved": {
+      "type": "boolean",
+      "required": true
+    },
+    "hasNewCommitsAfterApproval": {
+      "type": "boolean",
+      "required": true
+    }
+  }
+}

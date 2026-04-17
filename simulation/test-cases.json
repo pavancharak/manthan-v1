@@ -1,0 +1,29 @@
+[
+  {
+    "name": "ALLOW case",
+    "input": {
+      "isApproved": true,
+      "hasNewCommitsAfterApproval": false
+    }
+  },
+  {
+    "name": "BLOCK case",
+    "input": {
+      "isApproved": false,
+      "hasNewCommitsAfterApproval": false
+    }
+  },
+  {
+    "name": "ESCALATE (missing field)",
+    "input": {
+      "isApproved": true
+    }
+  },
+  {
+    "name": "REJECT (invalid type)",
+    "input": {
+      "isApproved": "yes",
+      "hasNewCommitsAfterApproval": false
+    }
+  }
+]
