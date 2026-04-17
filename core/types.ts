@@ -29,9 +29,23 @@ condition: RuleCondition;
 outcome: Decision;
 }
 
+export interface RuleSet {
+rule_version: string;
+rules: Rule[];
+}
+
+export interface ValidationResult {
+isValid: boolean;
+isComplete: boolean;
+errors: string[];
+missing_fields: string[];
+}
+
 export interface DecisionResult {
 decision: Decision;
 rule_id: string | null;
+schema_version: string;
+rule_version: string;
 explanation: {
 reason: string;
 details?: any;
