@@ -35,7 +35,10 @@ function isSafeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value);
 }
 
-function matchesSchemaFieldType(value: unknown, fieldType: "string" | "number" | "boolean"): boolean {
+function matchesSchemaFieldType(
+  value: unknown,
+  fieldType: "string" | "number" | "boolean"
+): boolean {
   switch (fieldType) {
     case "string":
       return typeof value === "string";
@@ -46,7 +49,59 @@ function matchesSchemaFieldType(value: unknown, fieldType: "string" | "number" |
   }
 }
 
-function normalizeRequires(requires: unknown, schema: Schema, ruleId: string): string[] | undefined {
+// ⚠️ SHADOW DETECTION
+function detectShadowed(rules: Rule[]): string[] {
+  const warnings: string[] = [];
+
+  for (let i = 0; i < rules.length; i++) {
+    const current = rules[i];
+
+    for (let j = 0; j < i; j++) {
+      const prev = rules[j];
+
+      if (
+        prev.condition.field === current.condition.field &&
+        prev.condition.operator === current.condition.operator &&
+        prev.condition.value === current.condition.value
+      ) {
+        warnings.push(`${current.id} is shadowed by ${prev.id}`);
+        break;
+      }
+    }
+  }
+
+  return warnings;
+}
+
+// ⚠️ COVERAGE GAP DETECTION
+function detectCoverageGaps(
+  rules: Rule[],
+  schema: Schema
+): string[] {
+  const warnings: string[] = [];
+
+  const coveredFields = new Set<string>();
+
+  for (const rule of rules) {
+    coveredFields.add(rule.condition.field);
+  }
+
+  for (const fieldName of Object.keys(schema.fields)) {
+    if (!coveredFields.has(fieldName)) {
+      warnings.push(
+        `No rule covers schema field '${fieldName}' → may cause ESCALATE`
+      );
+    }
+  }
+
+  return warnings;
+}
+
+function normalizeRequires(
+  requires: unknown,
+  schema: Schema,
+  ruleId: string
+): string[] | undefined {
   if (requires === undefined) {
     return undefined;
   }
@@ -64,7 +119,9 @@ function normalizeRequires(requires: unknown, schema: Schema, ruleId: string): s
     }
 
     if (schema.fields[field] === undefined) {
-      throw new Error(`Rule ${ruleId} references unknown required field ${field}`);
+      throw new Error(
+        `Rule ${ruleId} references unknown required field ${field}`
+      );
     }
 
     if (!seen.has(field)) {
@@ -76,7 +133,11 @@ function normalizeRequires(requires: unknown, schema: Schema, ruleId: string): s
   return normalized;
 }
 
-function normalizeCondition(condition: unknown, schema: Schema, ruleId: string): Rule["condition"] {
+function normalizeCondition(
+  condition: unknown,
+  schema: Schema,
+  ruleId: string
+): Rule["condition"] {
   if (!isPlainObject(condition)) {
     throw new Error(`Rule ${ruleId} has invalid condition`);
   }
@@ -89,10 +150,15 @@ function normalizeCondition(condition: unknown, schema: Schema, ruleId: string):
 
   const schemaField = schema.fields[rawCondition.field];
   if (schemaField === undefined) {
-    throw new Error(`Rule ${ruleId} references unknown condition field ${rawCondition.field}`);
+    throw new Error(
+      `Rule ${ruleId} references unknown condition field ${rawCondition.field}`
+    );
   }
 
-  if (!isNonEmptyString(rawCondition.operator) || !VALID_OPERATORS.has(rawCondition.operator)) {
+  if (
+    !isNonEmptyString(rawCondition.operator) ||
+    !VALID_OPERATORS.has(rawCondition.operator)
+  ) {
     throw new Error(`Rule ${ruleId} has invalid operator`);
   }
 
@@ -100,8 +166,12 @@ function normalizeCondition(condition: unknown, schema: Schema, ruleId: string):
     throw new Error(`Rule ${ruleId} has invalid condition value`);
   }
 
-  if (!matchesSchemaFieldType(rawCondition.value, schemaField.type)) {
-    throw new Error(`Rule ${ruleId} has condition value type mismatch for ${rawCondition.field}`);
+  if (
+    !matchesSchemaFieldType(rawCondition.value, schemaField.type)
+  ) {
+    throw new Error(
+      `Rule ${ruleId} has condition value type mismatch for ${rawCondition.field}`
+    );
   }
 
   return {
@@ -130,7 +200,10 @@ function compileRule(rawRule: unknown, schema: Schema): Rule {
     throw new Error(`Rule ${candidate.id} has invalid order`);
   }
 
-  if (!isNonEmptyString(candidate.outcome) || !VALID_OUTCOMES.has(candidate.outcome)) {
+  if (
+    !isNonEmptyString(candidate.outcome) ||
+    !VALID_OUTCOMES.has(candidate.outcome)
+  ) {
     throw new Error(`Rule ${candidate.id} has invalid outcome`);
   }
 
@@ -139,11 +212,16 @@ function compileRule(rawRule: unknown, schema: Schema): Rule {
     group: candidate.group,
     order: candidate.order,
     requires: normalizeRequires(candidate.requires, schema, candidate.id),
-    condition: normalizeCondition(candidate.condition, schema, candidate.id),
+    condition: normalizeCondition(
+      candidate.condition,
+      schema,
+      candidate.id
+    ),
     outcome: candidate.outcome as Rule["outcome"],
   };
 }
 
+// ❌ HARD FAIL
 function assertNoConflicts(rules: Rule[]): void {
   const seenConditions = new Map<string, string>();
 
@@ -153,6 +231,7 @@ function assertNoConflicts(rules: Rule[]): void {
       rule.condition.operator,
       rule.condition.value,
     ]);
+
     const existingOutcome = seenConditions.get(key);
 
     if (existingOutcome !== undefined && existingOutcome !== rule.outcome) {
@@ -163,7 +242,11 @@ function assertNoConflicts(rules: Rule[]): void {
   }
 }
 
-export function compileRuleSet(schema: Schema, rawRuleSet: unknown): RuleSet {
+// 🚀 MAIN COMPILER
+export function compileRuleSet(
+  schema: Schema,
+  rawRuleSet: unknown
+): RuleSet {
   if (!isPlainObject(rawRuleSet)) {
     throw new Error("Rule set is not an object");
   }
@@ -178,7 +261,10 @@ export function compileRuleSet(schema: Schema, rawRuleSet: unknown): RuleSet {
     throw new Error("Rule set has invalid rules");
   }
 
-  const compiledRules = candidate.rules.map((rule) => compileRule(rule, schema));
+  const compiledRules = candidate.rules.map((rule) =>
+    compileRule(rule, schema)
+  );
+
   const seenIds = new Set<string>();
   const seenOrderSlots = new Set<string>();
 
@@ -195,12 +281,20 @@ export function compileRuleSet(schema: Schema, rawRuleSet: unknown): RuleSet {
     seenOrderSlots.add(orderSlot);
   }
 
+  // ❌ BLOCK invalid logic
   assertNoConflicts(compiledRules);
+
+  // ⚠️ WARN inefficiencies
+  const warnings: string[] = [];
+  warnings.push(...detectShadowed(compiledRules));
+  warnings.push(...detectCoverageGaps(compiledRules, schema));
 
   return {
     rule_version: candidate.rule_version,
     rules: [...compiledRules].sort(
-      (left, right) => left.group - right.group || left.order - right.order
+      (left, right) =>
+        left.group - right.group || left.order - right.order
     ),
+    warnings,
   };
 }

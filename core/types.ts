@@ -30,8 +30,9 @@ outcome: Decision;
 }
 
 export interface RuleSet {
-rule_version: string;
-rules: Rule[];
+  rule_version: string;
+  rules: Rule[];
+  warnings?: string[]; 
 }
 
 export interface ValidationResult {

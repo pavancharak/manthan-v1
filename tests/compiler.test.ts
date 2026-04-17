@@ -1,5 +1,5 @@
-import { Schema } from "../core/types";
 import { compileRuleSet } from "../rules/compiler";
+import { Schema } from "../core/types";
 
 const sampleSchema: Schema = {
   schema_version: "schema.v1",
@@ -206,5 +206,54 @@ describe("rule compiler", () => {
         ],
       })
     ).toThrow("Rule bad-outcome has invalid outcome");
+  });
+
+  // ✅ NEW — SHADOW DETECTION
+  test("warns for shadowed rules", () => {
+    const result = compileRuleSet(sampleSchema, {
+      rule_version: "rules.v1",
+      rules: [
+        {
+          id: "rule-1",
+          group: 1,
+          order: 1,
+          condition: { field: "country", operator: "eq", value: "US" },
+          outcome: "ALLOW",
+        },
+        {
+          id: "rule-2",
+          group: 1,
+          order: 2,
+          condition: { field: "country", operator: "eq", value: "US" },
+          outcome: "ALLOW",
+        },
+      ],
+    });
+
+    expect(result.warnings).toBeDefined();
+    expect(result.warnings!.some((w) => w.includes("shadowed"))).toBe(true);
+  });
+
+  // ✅ NEW — COVERAGE GAP DETECTION
+  test("warns for missing field coverage", () => {
+    const result = compileRuleSet(sampleSchema, {
+      rule_version: "rules.v1",
+      rules: [
+        {
+          id: "rule-1",
+          group: 1,
+          order: 1,
+          condition: { field: "country", operator: "eq", value: "US" },
+          outcome: "ALLOW",
+        },
+      ],
+    });
+
+    expect(result.warnings).toBeDefined();
+    expect(
+      result.warnings!.some((w) =>
+        w.includes("No rule covers")
+      )
+    ).toBe(true);
   });
 });
