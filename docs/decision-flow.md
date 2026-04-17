@@ -1,0 +1,28 @@
+\# Decision Flow
+
+
+
+1\. Signals received
+
+2\. Mapping → Decision Input
+
+3\. Validation
+
+&#x20;  - Invalid → REJECT
+
+&#x20;  - Missing → ESCALATE
+
+4\. Rule Evaluation
+
+&#x20;  - Match → ALLOW / BLOCK
+
+&#x20;  - No match → ESCALATE
+
+
+
+\## Flow
+
+
+
+Signals → Mapping → Validation → Rules → Outcome
+
