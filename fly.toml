@@ -1,8 +1,14 @@
-app = "manthan-core-dev"
+app = "manthan-core-v1"
 primary_region = "bom"
 
 [build]
   builder = "paketobuildpacks/builder:base"
+
+[env]
+  NODE_ENV = "production"
+
+[deploy]
+  release_command = "npm run build --prefix apps/core-server"
 
 [http_service]
   internal_port = 3000
