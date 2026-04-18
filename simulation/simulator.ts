@@ -1,10 +1,14 @@
+import { compileRuleSet } from "../rules/compiler";
+import { generateSuggestions } from "../ai/suggestions";
 import { executeDecisionInputRequest } from "../execution/sdk";
 import fs from "fs";
 import path from "path";
 
 // Load schema + rules
 const schema = require("../schema/schema.json");
-const rule_set = require("../rules/rule_set.json");
+const raw_rule_set = require("../rules/rule_set.json");
+
+const rule_set = compileRuleSet(schema, raw_rule_set);
 
 const context = {
   schema,
@@ -24,56 +28,7 @@ const testCases: SimulationCase[] = JSON.parse(raw);
 
 // 📊 Coverage trackers
 const usedRules = new Set<string>();
-const escalateReasons: any[] = [];
-
-// 🚨 Shadow Detection
-function detectShadowedRules(rule_set: any): string[] {
-  const shadowed: string[] = [];
-  const rules = rule_set.rules;
-
-  for (let i = 0; i < rules.length; i++) {
-    const current = rules[i];
-
-    for (let j = 0; j < i; j++) {
-      const prev = rules[j];
-
-      if (
-        prev.condition.field === current.condition.field &&
-        prev.condition.operator === current.condition.operator &&
-        prev.condition.value === current.condition.value
-      ) {
-        shadowed.push(`${current.id} is shadowed by ${prev.id}`);
-        break;
-      }
-    }
-  }
-
-  return shadowed;
-}
-
-// 🚨 Conflict Detection
-function detectRuleConflicts(rule_set: any): string[] {
-  const conflicts: string[] = [];
-  const rules = rule_set.rules;
-
-  for (let i = 0; i < rules.length; i++) {
-    for (let j = i + 1; j < rules.length; j++) {
-      const a = rules[i];
-      const b = rules[j];
-
-      if (
-        a.condition.field === b.condition.field &&
-        a.condition.operator === b.condition.operator &&
-        a.condition.value === b.condition.value &&
-        a.outcome !== b.outcome
-      ) {
-        conflicts.push(`${a.id} conflicts with ${b.id}`);
-      }
-    }
-  }
-
-  return conflicts;
-}
+const escalateCases: { reason: string; details?: any }[] = [];
 
 // 🚀 Run Simulation
 function runSimulation() {
@@ -94,8 +49,7 @@ function runSimulation() {
 
     // Track ESCALATE
     if (decision.decision === "ESCALATE") {
-      escalateReasons.push({
-        test: test.name,
+      escalateCases.push({
         reason: decision.explanation.reason,
         details: decision.explanation.details,
       });
@@ -126,34 +80,30 @@ function runSimulation() {
   }
 
   console.log("\n⚠️ ESCALATE Cases:");
-  if (escalateReasons.length === 0) {
+  if (escalateCases.length === 0) {
     console.log(" - None");
   } else {
-    escalateReasons.forEach((e) => {
-      console.log(` - ${e.test}`);
+    escalateCases.forEach((e, idx) => {
+      console.log(` - Case ${idx + 1}`);
       console.log("   Reason:", e.reason);
       console.log("   Details:", JSON.stringify(e.details));
     });
   }
 
-  // 🚨 SHADOW DETECTION
-  const shadowedRules = detectShadowedRules(rule_set);
+  // 💡 AI SUGGESTIONS (FINAL INTEGRATION)
+  const suggestions = generateSuggestions({
+    warnings: rule_set.warnings, // from compiler
+    escalateCases,
+  });
 
-  console.log("\n🚨 Shadowed Rules:");
-  if (shadowedRules.length === 0) {
-    console.log(" - None");
+  console.log("\n💡 AI SUGGESTIONS\n");
+
+  if (suggestions.length === 0) {
+    console.log("✔ No suggestions — system looks optimal");
   } else {
-    shadowedRules.forEach((r: string) => console.log(" -", r));
-  }
-
-  // 🚨 CONFLICT DETECTION
-  const conflicts = detectRuleConflicts(rule_set);
-
-  console.log("\n🚨 Conflicting Rules:");
-  if (conflicts.length === 0) {
-    console.log(" - None");
-  } else {
-    conflicts.forEach((c: string) => console.log(" -", c));
+    suggestions.forEach((s) => {
+      console.log(`- [${s.type.toUpperCase()}] ${s.message}`);
+    });
   }
 }
 
