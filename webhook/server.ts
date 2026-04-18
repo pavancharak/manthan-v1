@@ -3,7 +3,8 @@ import bodyParser from "body-parser";
 import crypto from "crypto";
 import fetch from "node-fetch";
 
-import { executeDecisionInput } from "../execution/sdk";
+import { executeDecisionInputRequest } from "../execution/sdk";
+import { compileRuleSet } from "../rules/compiler";
 
 const app = express();
 app.use(bodyParser.json());
@@ -14,9 +15,17 @@ const PORT = 3001;
 const GITHUB_SECRET = process.env.GITHUB_SECRET || "";
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
 
-// Replace with real schema + rule_set loading
-import schema from "../schema/schema.json";
-import rule_set from "../rules/rule_set.json";
+// LOAD + COMPILE
+import rawSchema from "../schema/schema.json";
+import rawRuleSet from "../rules/rule_set.json";
+
+import { Schema, RuleSet } from "../core/types";
+
+// ✅ FORCE TYPE ALIGNMENT
+const schema = rawSchema as Schema;
+const raw_rule_set = rawRuleSet as RuleSet;
+
+const rule_set = compileRuleSet(schema, raw_rule_set);
 
 const context = {
   schema,
@@ -29,9 +38,13 @@ function verifySignature(req: any) {
   if (!signature) return false;
 
   const hmac = crypto.createHmac("sha256", GITHUB_SECRET);
-  const digest = "sha256=" + hmac.update(JSON.stringify(req.body)).digest("hex");
+  const digest =
+    "sha256=" + hmac.update(JSON.stringify(req.body)).digest("hex");
 
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
+  return crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(digest)
+  );
 }
 
 // WEBHOOK
@@ -49,41 +62,65 @@ app.post("/webhook", async (req, res) => {
 
     const pr = req.body.pull_request;
 
-    // BUILD DECISION INPUT (NO LOGIC — just extraction)
+    // ✅ DECISION INPUT (deterministic + minimal)
     const decision_input = {
-      isApproved: pr.requested_reviewers.length === 0,
-      hasNewCommitsAfterApproval: false, // simplified for now
+      isApproved: pr.merged === false && pr.state === "open" && pr.draft === false,
+      hasNewCommitsAfterApproval: false, // TODO: improve later
     };
 
-    // EXECUTE
-    const result = executeDecisionInput({
+    // ✅ EXECUTE
+    const result = executeDecisionInputRequest(context, {
+      intent: "pr_merge_safety",
       input: decision_input,
-      context,
     });
 
-    // COMMENT ON PR
+    const decision = result.decision_result;
+
+    // ✅ FORMAT COMMENT
+    const commentBody = `
+### 🧠 Manthan Decision
+
+**Decision:** ${decision.decision}
+
+**Reason:** ${decision.explanation.reason}
+
+${
+  decision.explanation.details
+    ? `**Details:** \n\`\`\`json\n${JSON.stringify(
+        decision.explanation.details,
+        null,
+        2
+      )}\n\`\`\``
+    : ""
+}
+`;
+
+    // POST COMMENT
     const repo = req.body.repository.full_name;
     const issue_number = pr.number;
 
-    await fetch(`https://api.github.com/repos/${repo}/issues/${issue_number}/comments`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GITHUB_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        body: `Manthan Decision: **${result.outcome}**\n\n${result.explanation}`,
-      }),
-    });
+    await fetch(
+      `https://api.github.com/repos/${repo}/issues/${issue_number}/comments`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${GITHUB_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          body: commentBody,
+        }),
+      }
+    );
 
-    return res.status(200).json(result);
+    return res.status(200).json(decision);
   } catch (err) {
     console.error(err);
     return res.status(500).send("Error processing webhook");
   }
 });
 
-// START SERVER
+// START
 app.listen(PORT, () => {
-  console.log(`Webhook running on port ${PORT}`);
+  console.log(`🚀 Manthan webhook running on port ${PORT}`);
 });
