@@ -17,7 +17,7 @@ import { Schema, RuleSet } from "../../core/types";
 const app = express();
 app.use(bodyParser.json());
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3000;
 
 const GITHUB_SECRET = process.env.GITHUB_SECRET || "";
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
