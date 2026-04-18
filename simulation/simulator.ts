@@ -1,6 +1,9 @@
+import { logDecisionEvent } from "../events/logger";
+import { analyzeCoverage } from "../coverage/coverage";
 import { compileRuleSet } from "../rules/compiler";
 import { generateSuggestions } from "../ai/suggestions";
 import { executeDecisionInputRequest } from "../execution/sdk";
+import { analyzeCost } from "../cost/analyzer";
 import fs from "fs";
 import path from "path";
 
@@ -8,6 +11,7 @@ import path from "path";
 const schema = require("../schema/schema.json");
 const raw_rule_set = require("../rules/rule_set.json");
 
+// Compile rules (IMPORTANT: includes warnings)
 const rule_set = compileRuleSet(schema, raw_rule_set);
 
 const context = {
@@ -41,13 +45,21 @@ function runSimulation() {
     });
 
     const decision = result.decision_result;
+   logDecisionEvent({
+  timestamp: new Date().toISOString(),
+  intent: "simulation_test",
+  decision_input: test.input,
+  decision_result: decision,
+  schema_version: rule_set.rule_version,
+  rule_version: rule_set.rule_version,
+});
 
     // Track used rules
     if (decision.rule_id) {
       usedRules.add(decision.rule_id);
     }
 
-    // Track ESCALATE
+    // Track ESCALATE cases
     if (decision.decision === "ESCALATE") {
       escalateCases.push({
         reason: decision.explanation.reason,
@@ -62,9 +74,14 @@ function runSimulation() {
     console.log("Reason:", decision.explanation.reason);
     console.log("====================================\n");
   });
-
+const coverage = analyzeCoverage({
+  ruleIds: rule_set.rules.map((r: any) => r.id),
+  usedRules,
+  escalateCases,
+});
   // 📊 COVERAGE REPORT
   console.log("\n📊 COVERAGE REPORT\n");
+  console.log("Coverage:", `${coverage.coveragePercent}%`);
 
   const allRules: string[] = rule_set.rules.map((r: any) => r.id);
   const unusedRules: string[] = allRules.filter((id) => !usedRules.has(id));
@@ -90,9 +107,9 @@ function runSimulation() {
     });
   }
 
-  // 💡 AI SUGGESTIONS (FINAL INTEGRATION)
+  // 💡 AI SUGGESTIONS
   const suggestions = generateSuggestions({
-    warnings: rule_set.warnings, // from compiler
+    warnings: rule_set.warnings,
     escalateCases,
   });
 
@@ -105,6 +122,22 @@ function runSimulation() {
       console.log(`- [${s.type.toUpperCase()}] ${s.message}`);
     });
   }
+
+  // 💰 COST ANALYSIS (FINAL ADDITION)
+  const cost = analyzeCost({
+    ruleCount: rule_set.rules.length,
+    evaluatedRules: usedRules.size,
+    suggestions: suggestions.length,
+    simulations: testCases.length,
+  });
+
+  console.log("\n💰 COST REPORT\n");
+
+  console.log("Total Rules:", cost.totalRules);
+  console.log("Evaluated Rules:", cost.evaluatedRules);
+  console.log("Suggestions Generated:", cost.suggestionsGenerated);
+  console.log("Simulation Cases:", cost.simulationCases);
+  console.log("Estimated Cost Score:", cost.estimatedCostScore);
 }
 
 // Execute

@@ -1,0 +1,27 @@
+{
+  "rule_version": "v1",
+  "rules": [
+    {
+      "id": "rule_block_unapproved",
+      "group": 1,
+      "order": 1,
+      "condition": {
+        "operator": "eq",
+        "field": "isApproved",
+        "value": false
+      },
+      "outcome": "BLOCK"
+    },
+    {
+      "id": "rule_allow_clean_pr",
+      "group": 1,
+      "order": 2,
+      "condition": {
+        "operator": "eq",
+        "field": "hasNewCommitsAfterApproval",
+        "value": false
+      },
+      "outcome": "ALLOW"
+    }
+  ]
+}
