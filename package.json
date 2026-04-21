@@ -6,7 +6,7 @@
     "build": "tsc",
     "test": "jest",
     "check": "npm run build && npm test",
-
+    "verify": "ts-node scripts/verifyDecisionSystem.ts",
     "simulate": "ts-node simulation/simulator.ts",
     "dev:webhook": "ts-node apps/github/webhook.ts"
   },

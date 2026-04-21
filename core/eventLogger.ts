@@ -15,7 +15,10 @@ export interface DecisionEvent {
 
 const LOG_FILE = path.join(__dirname, "..", "logs", "decision.log");
 
-// ensure logs folder exists
+// --------------------------------------
+// Ensure logs folder exists
+// --------------------------------------
+
 function ensureLogDir() {
   const dir = path.dirname(LOG_FILE);
   if (!fs.existsSync(dir)) {
@@ -23,24 +26,57 @@ function ensureLogDir() {
   }
 }
 
-// deterministic hash
-function computeHash(payload: object): string {
-  const json = JSON.stringify(payload);
-  return crypto.createHash("sha256").update(json).digest("hex");
+// --------------------------------------
+// Canonical JSON (deterministic)
+// --------------------------------------
+
+function canonicalize(obj: any): string {
+  if (obj === null || typeof obj !== "object") {
+    return JSON.stringify(obj);
+  }
+
+  if (Array.isArray(obj)) {
+    return `[${obj.map(canonicalize).join(",")}]`;
+  }
+
+  const keys = Object.keys(obj).sort();
+
+  return `{${keys
+    .map((k) => `"${k}":${canonicalize(obj[k])}`)
+    .join(",")}}`;
 }
 
-// generate event id
+// --------------------------------------
+// Deterministic hash (CRITICAL)
+// --------------------------------------
+
+function computeHash(payload: object): string {
+  const canonical = canonicalize(payload);
+
+  return crypto.createHash("sha256").update(canonical).digest("hex");
+}
+
+// --------------------------------------
+// Generate event id
+// --------------------------------------
+
 function generateEventId(): string {
   return crypto.randomUUID();
 }
 
-// append log safely
+// --------------------------------------
+// Append log safely
+// --------------------------------------
+
 function appendLog(line: string) {
   ensureLogDir();
   fs.appendFileSync(LOG_FILE, line + "\n", "utf-8");
 }
 
-// main logger
+// --------------------------------------
+// MAIN LOGGER
+// --------------------------------------
+
 export function logDecisionEvent(params: {
   intent: string;
   intent_version: string;
@@ -50,19 +86,20 @@ export function logDecisionEvent(params: {
   try {
     const timestamp = new Date().toISOString();
 
-    const base = {
+    // ✅ ONLY deterministic fields
+    const hashPayload = {
       intent: params.intent,
       intent_version: params.intent_version,
       decision_input: params.decision_input,
       decision_result: params.decision_result,
-      timestamp,
     };
 
-    const hash = computeHash(base);
+    const hash = computeHash(hashPayload);
 
     const event: DecisionEvent = {
-      event_id: generateEventId(),
-      ...base,
+      event_id: generateEventId(), // ❌ NOT part of hash
+      ...hashPayload,
+      timestamp,                  // ❌ NOT part of hash
       hash,
     };
 
