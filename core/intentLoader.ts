@@ -28,33 +28,16 @@ export function loadIntent(
     "rule_set.json"
   );
 
-  // -----------------------------
-  // VALIDATION
-  // -----------------------------
-
   if (!fs.existsSync(schemaPath)) {
-    throw new Error(`Schema not found for ${intent}:${version}`);
+    throw new Error(`Schema not found for ${intent}@${version}`);
   }
 
   if (!fs.existsSync(rulesPath)) {
-    throw new Error(`Rules not found for ${intent}:${version}`);
+    throw new Error(`Rules not found for ${intent}@${version}`);
   }
 
-  // -----------------------------
-  // LOAD FILES
-  // -----------------------------
-
-  const schema: Schema = JSON.parse(
-    fs.readFileSync(schemaPath, "utf-8")
-  );
-
-  const rawRules = JSON.parse(
-    fs.readFileSync(rulesPath, "utf-8")
-  );
-
-  // -----------------------------
-  // COMPILE RULES
-  // -----------------------------
+  const schema = JSON.parse(fs.readFileSync(schemaPath, "utf-8"));
+  const rawRules = JSON.parse(fs.readFileSync(rulesPath, "utf-8"));
 
   const ruleSet = compileRuleSet(schema, rawRules);
 

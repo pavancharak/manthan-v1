@@ -35,9 +35,9 @@ export function handleExecutionApiRequest(
       return { status: 400, body: { error: "invalid_request" } };
     }
 
-    if (!isNonEmptyString(payload.intent)) {
-      return { status: 400, body: { error: "invalid_intent" } };
-    }
+    if (!isNonEmptyString(payload.intent_version)) {
+  return { status: 400, body: { error: "invalid_intent_version" } };
+}
 
     if (!isNonEmptyString(payload.intent_version)) {
       return { status: 400, body: { error: "missing_intent_version" } };

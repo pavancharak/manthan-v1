@@ -1,6 +1,5 @@
 import { execute } from "../core/engine";
 import { loadIntent } from "../core/intentLoader";
-
 import { DecisionInput, DecisionResult, RuleSet } from "../core/types";
 
 import { ingestSignalBatch } from "../signals/ingest";
@@ -12,18 +11,26 @@ import {
 import { SignalBatch } from "../signals/types";
 
 // --------------------------------------
+// HELPERS
+// --------------------------------------
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+// --------------------------------------
 // REQUEST TYPES
 // --------------------------------------
 
 export interface DecisionInputExecutionRequest {
   intent: string;
-  intent_version: string; // ✅ REQUIRED
+  intent_version: string;
   input: DecisionInput;
 }
 
 export interface SignalExecutionRequest {
   intent: string;
-  intent_version: string; // ✅ REQUIRED
+  intent_version: string;
   raw_signal_batch: unknown;
   mappings?: SignalFieldMapping[];
 }
@@ -34,6 +41,8 @@ export interface SignalExecutionRequest {
 
 export interface DecisionInputExecutionResult {
   mode: "decision_input";
+  intent: string;
+  intent_version: string;
   decision_input: DecisionInput;
   decision_result: DecisionResult;
   rule_set: RuleSet;
@@ -41,6 +50,8 @@ export interface DecisionInputExecutionResult {
 
 export interface SignalExecutionResult {
   mode: "signal_batch";
+  intent: string;
+  intent_version: string;
   signal_batch: SignalBatch;
   mapping_result: DecisionInputMappingResult;
   decision_result: DecisionResult;
@@ -54,8 +65,8 @@ export interface SignalExecutionResult {
 export function executeDecisionInputRequest(
   request: DecisionInputExecutionRequest
 ): DecisionInputExecutionResult {
-  if (!request.intent_version) {
-    throw new Error("Missing intent_version");
+  if (!isNonEmptyString(request.intent_version)) {
+    throw new Error("Invalid intent_version");
   }
 
   const { schema, ruleSet } = loadIntent(
@@ -72,6 +83,8 @@ export function executeDecisionInputRequest(
 
   return {
     mode: "decision_input",
+    intent: request.intent,
+    intent_version: request.intent_version,
     decision_input: request.input,
     decision_result,
     rule_set: ruleSet,
@@ -85,8 +98,8 @@ export function executeDecisionInputRequest(
 export function executeSignalRequest(
   request: SignalExecutionRequest
 ): SignalExecutionResult {
-  if (!request.intent_version) {
-    throw new Error("Missing intent_version");
+  if (!isNonEmptyString(request.intent_version)) {
+    throw new Error("Invalid intent_version");
   }
 
   const { schema, ruleSet } = loadIntent(
@@ -94,17 +107,14 @@ export function executeSignalRequest(
     request.intent_version
   );
 
-  // Step 1: ingest signals
   const signal_batch = ingestSignalBatch(request.raw_signal_batch);
 
-  // Step 2: map signals → decision input
   const mapping_result = mapSignalsToDecisionInput(
     signal_batch,
     schema,
     request.mappings ?? []
   );
 
-  // Step 3: execute decision
   const decision_result = execute(
     request.intent,
     mapping_result.decision_input,
@@ -114,6 +124,8 @@ export function executeSignalRequest(
 
   return {
     mode: "signal_batch",
+    intent: request.intent,
+    intent_version: request.intent_version,
     signal_batch,
     mapping_result,
     decision_result,
