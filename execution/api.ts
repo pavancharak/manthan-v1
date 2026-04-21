@@ -53,10 +53,10 @@ export function handleExecutionApiRequest(
       }
 
       const result = executeDecisionInputRequest({
-        intent: payload.intent,
-        intent_version: payload.intent_version, // ✅ FIX
-        input: payload.input as DecisionInput,
-      });
+  intent: payload.intent as string,
+  intent_version: payload.intent_version as string,
+  input: payload.input as DecisionInput,
+});
 
       return {
         status: 200,
@@ -70,13 +70,13 @@ export function handleExecutionApiRequest(
 
     if (payload.mode === "signal_batch") {
       const result = executeSignalRequest({
-        intent: payload.intent,
-        intent_version: payload.intent_version, // ✅ FIX
-        raw_signal_batch: payload.raw_signal_batch,
-        mappings: Array.isArray(payload.mappings)
-          ? (payload.mappings as SignalFieldMapping[])
-          : undefined,
-      });
+  intent: payload.intent as string,
+  intent_version: payload.intent_version as string,
+  raw_signal_batch: payload.raw_signal_batch,
+  mappings: Array.isArray(payload.mappings)
+    ? (payload.mappings as SignalFieldMapping[])
+    : undefined,
+});
 
       return {
         status: 200,
