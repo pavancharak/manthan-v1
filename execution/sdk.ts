@@ -1,3 +1,4 @@
+import { logDecisionEvent } from "../core/eventLogger";
 import { execute } from "../core/engine";
 import { loadIntent } from "../core/intentLoader";
 import { DecisionInput, DecisionResult, RuleSet } from "../core/types";
@@ -26,6 +27,7 @@ export interface DecisionInputExecutionRequest {
   intent: string;
   intent_version: string;
   input: DecisionInput;
+  debug?: boolean;
 }
 
 export interface SignalExecutionRequest {
@@ -33,6 +35,7 @@ export interface SignalExecutionRequest {
   intent_version: string;
   raw_signal_batch: unknown;
   mappings?: SignalFieldMapping[];
+  debug?: boolean;
 }
 
 // --------------------------------------
@@ -78,8 +81,17 @@ export function executeDecisionInputRequest(
     request.intent,
     request.input,
     schema,
-    ruleSet
+    ruleSet,
+    { debug: request.debug }
   );
+
+  // ✅ EVENT LOGGING (non-blocking, side-effect safe)
+  logDecisionEvent({
+    intent: request.intent,
+    intent_version: request.intent_version,
+    decision_input: request.input,
+    decision_result,
+  });
 
   return {
     mode: "decision_input",
@@ -119,8 +131,17 @@ export function executeSignalRequest(
     request.intent,
     mapping_result.decision_input,
     schema,
-    ruleSet
+    ruleSet,
+    { debug: request.debug }
   );
+
+  // ✅ EVENT LOGGING (non-blocking, side-effect safe)
+  logDecisionEvent({
+    intent: request.intent,
+    intent_version: request.intent_version,
+    decision_input: mapping_result.decision_input,
+    decision_result,
+  });
 
   return {
     mode: "signal_batch",

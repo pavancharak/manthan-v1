@@ -40,6 +40,24 @@ export interface RuleSet {
 }
 
 // -----------------------------
+// Debug Trace
+// -----------------------------
+export interface DecisionDebugTrace {
+  validation: {
+    isValid: boolean;
+    errors?: string[];
+  };
+  completeness: {
+    isComplete: boolean;
+    missing_fields?: string[];
+  };
+  evaluation: {
+    matched_rule_id: string | null;
+    checked_rules: string[];
+  };
+}
+
+// -----------------------------
 // Decision Result (STRICT)
 // -----------------------------
 export type DecisionResult =
@@ -76,3 +94,10 @@ export type DecisionResult =
         details?: Rule;
       };
     };
+
+// -----------------------------
+// Extended Result (DEBUG SAFE)
+// -----------------------------
+export type DecisionResultWithDebug = DecisionResult & {
+  debug?: DecisionDebugTrace;
+};
