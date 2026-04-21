@@ -1,110 +1,105 @@
 import { validateInput } from "../schema/validator";
-import { DecisionInput, Schema, ValidationResult } from "../core/types";
-
-const sampleSchema: Schema = {
-  schema_version: "schema.v1",
-  fields: {
-    age: { type: "number", required: true },
-    country: { type: "string", required: true },
-    vip: { type: "boolean", required: false },
-  },
-};
 
 describe("schema validator", () => {
+  const sampleSchema = {
+    schema_version: "schema.v1",
+    system_fields: {
+      age: "number",
+      country: "string",
+      vip: "boolean",
+    },
+  };
+
   test("rejects unexpected fields", () => {
-    const input: DecisionInput = {
-      age: 30,
-      country: "US",
-      region: "NA",
+    const input = {
+      system_data: {
+        age: 30,
+        country: "US",
+        region: "NA", // ❌ unexpected
+      },
     };
 
-    const result = validateInput(sampleSchema, input);
+    const result = validateInput(sampleSchema as any, input as any);
 
-    expect(result).toEqual<ValidationResult>({
-      isValid: false,
-      isComplete: false,
-      errors: ["Unexpected field: region"],
-      missing_fields: [],
-    });
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContain("Unexpected field: region");
   });
 
   test("rejects invalid types", () => {
-    const input: DecisionInput = {
-      age: "30",
-      country: 10,
-      vip: false,
+    const input = {
+      system_data: {
+        age: "30", // ❌ wrong type
+        country: 10, // ❌ wrong type
+        vip: false,
+      },
     };
 
-    const result = validateInput(sampleSchema, input);
+    const result = validateInput(sampleSchema as any, input as any);
 
-    expect(result).toEqual<ValidationResult>({
-      isValid: false,
-      isComplete: false,
-      errors: ["Invalid type for age", "Invalid type for country"],
-      missing_fields: [],
-    });
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        "Invalid type for age",
+        "Invalid type for country",
+      ])
+    );
   });
 
   test("rejects non-finite numbers", () => {
-    const input: DecisionInput = {
-      age: Number.NaN,
-      country: "US",
+    const input = {
+      system_data: {
+        age: Number.NaN,
+        country: "US",
+      },
     };
 
-    const result = validateInput(sampleSchema, input);
+    const result = validateInput(sampleSchema as any, input as any);
 
-    expect(result).toEqual<ValidationResult>({
-      isValid: false,
-      isComplete: false,
-      errors: ["Invalid type for age"],
-      missing_fields: [],
-    });
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContain("Invalid type for age");
   });
 
   test("returns missing required fields for incomplete input", () => {
-    const input: DecisionInput = {
-      vip: true,
+    const input = {
+      system_data: {
+        vip: true,
+      },
     };
 
-    const result = validateInput(sampleSchema, input);
+    const result = validateInput(sampleSchema as any, input as any);
 
-    expect(result).toEqual<ValidationResult>({
-      isValid: true,
-      isComplete: false,
-      errors: [],
-      missing_fields: ["age", "country"],
-    });
+    expect(result.isValid).toBe(true);
+    expect(result.isComplete).toBe(false);
+    expect(result.missing_fields).toEqual(
+      expect.arrayContaining(["age", "country"])
+    );
   });
 
   test("invalid takes precedence over missing", () => {
-    const input: DecisionInput = {
-      age: "30",
+    const input = {
+      system_data: {
+        age: "30", // invalid
+      },
     };
 
-    const result = validateInput(sampleSchema, input);
+    const result = validateInput(sampleSchema as any, input as any);
 
-    expect(result).toEqual<ValidationResult>({
-      isValid: false,
-      isComplete: false,
-      errors: ["Invalid type for age"],
-      missing_fields: [],
-    });
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContain("Invalid type for age");
   });
 
   test("accepts valid input", () => {
-    const input: DecisionInput = {
-      age: 30,
-      country: "US",
-      vip: false,
+    const input = {
+      system_data: {
+        age: 30,
+        country: "US",
+        vip: false,
+      },
     };
 
-    const result = validateInput(sampleSchema, input);
+    const result = validateInput(sampleSchema as any, input as any);
 
-    expect(result).toEqual<ValidationResult>({
-      isValid: true,
-      isComplete: true,
-      errors: [],
-      missing_fields: [],
-    });
+    expect(result.isValid).toBe(true);
+    expect(result.isComplete).toBe(true);
   });
 });

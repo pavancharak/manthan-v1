@@ -1,46 +1,68 @@
-\# Overview
+\# Manthan Overview
 
 
 
-Manthan is a deterministic decision system.
+Manthan is a \*\*deterministic decision infrastructure\*\*.
 
 
 
-It evaluates structured inputs (Decision Input) against defined rules and produces guaranteed outcomes.
+It evaluates input against:
+
+\- a schema (what data is required)
+
+\- a rule set (what is allowed)
 
 
 
-\## Core Guarantee
+and produces a \*\*decision result\*\*.
 
 
 
-Same Decision Input → Same Decision Outcome
+\---
 
 
 
-\## What Manthan Does
+\## Core Properties
 
 
 
-\- Validates input against schema
+\- Deterministic: same input → same outcome
 
-\- Checks completeness
+\- Non-bypassable: decisions cannot be overridden
 
-\- Applies precompiled rules
+\- Auditable: every decision is explainable
 
-\- Returns deterministic outcome
-
-
-
-\## What Manthan Does NOT Do
+\- Domain-agnostic: no business logic in core
 
 
 
-\- No AI-based decisions
+\---
 
-\- No probabilistic logic
 
-\- No runtime mutation
 
-\- No hidden defaults
+\## Decision Outputs
+
+
+
+Manthan returns:
+
+
+
+\- INVALID → input is malformed
+
+\- INCOMPLETE → missing required data
+
+\- DECIDED → evaluation completed
+
+
+
+If DECIDED:
+
+
+
+\- ALLOW
+
+\- BLOCK
+
+\- ESCALATE
 

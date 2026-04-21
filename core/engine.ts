@@ -3,55 +3,67 @@ import { evaluateRules } from "./evaluator";
 import { DecisionInput, DecisionResult, RuleSet, Schema } from "./types";
 
 export function execute(
-intent: string,
-input: DecisionInput,
-schema: Schema,
-ruleSet: RuleSet
+  intent: string,
+  input: DecisionInput,
+  schema: Schema,
+  ruleSet: RuleSet
 ): DecisionResult {
-void intent;
+  void intent;
 
-const validation = validateInput(schema, input);
-const versions = {
-schema_version: schema.schema_version,
-rule_version: ruleSet.rule_version,
-};
+  const validation = validateInput(schema, input);
 
-if (!validation.isValid) {
-return {
-decision: "REJECT",
-rule_id: null,
-...versions,
-explanation: { reason: "invalid_input", details: validation.errors },
-};
-}
+  const versions = {
+    schema_version: schema.schema_version,
+    rule_version: ruleSet.rule_version,
+  };
 
-if (!validation.isComplete) {
-return {
-decision: "ESCALATE",
-rule_id: null,
-...versions,
-explanation: {
-reason: "incomplete_input",
-details: { missing_fields: validation.missing_fields },
-},
-};
-}
+  // 🔴 INVALID
+  if (!validation.isValid) {
+    return {
+      status: "INVALID",
+      rule_id: null,
+      ...versions,
+      explanation: {
+        reason: "invalid_input",
+        details: validation.errors,
+      },
+    };
+  }
 
-const rule = evaluateRules(ruleSet.rules, input);
+  // 🟡 INCOMPLETE
+  if (!validation.isComplete) {
+    return {
+      status: "INCOMPLETE",
+      rule_id: null,
+      ...versions,
+      explanation: {
+        reason: "incomplete_input",
+        details: { missing_fields: validation.missing_fields },
+      },
+    };
+  }
 
-if (!rule) {
-return {
-decision: "ESCALATE",
-rule_id: null,
-...versions,
-explanation: { reason: "no_rule_match" },
-};
-}
+  // 🟢 RULE EVALUATION
+  const rule = evaluateRules(ruleSet.rules, input);
 
-return {
-decision: rule.outcome,
-rule_id: rule.id,
-...versions,
-explanation: { reason: "rule_matched", details: rule },
-};
+  if (!rule) {
+    return {
+      status: "DECIDED",
+      decision: "ESCALATE",
+      rule_id: null,
+      ...versions,
+      explanation: { reason: "no_rule_match" },
+    };
+  }
+
+  return {
+    status: "DECIDED",
+    decision: rule.outcome,
+    rule_id: rule.id,
+    ...versions,
+    explanation: {
+      reason: "rule_matched",
+      details: rule,
+    },
+  };
 }

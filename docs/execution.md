@@ -1,8 +1,24 @@
-\# Execution Layer
+\# Execution
 
 
 
-Execution layer connects Manthan to external systems.
+Manthan Core evaluates decisions.
+
+
+
+Operator systems:
+
+
+
+\- build decision input
+
+\- send to core
+
+\- execute outcome
+
+
+
+\---
 
 
 
@@ -10,35 +26,21 @@ Execution layer connects Manthan to external systems.
 
 
 
-\- Accept Decision Input
+\### Core
 
-\- Pass to engine
+\- validate input
 
-\- Return outcome
+\- evaluate rules
 
-
-
-\## Constraints
+\- return decision result
 
 
 
-\- No rule compilation at runtime
+\### Operator
 
-\- No business logic
+\- collect data
 
-\- No mutation
+\- handle INVALID / INCOMPLETE
 
-
-
-\## Execution Context
-
-
-
-{
-
-&#x20; schema,
-
-&#x20; rule\_set
-
-}
+\- execute ALLOW / BLOCK / ESCALATE
 

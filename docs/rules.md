@@ -2,11 +2,11 @@
 
 
 
-Rules define what is allowed or blocked.
+Rules define decision logic.
 
 
 
-\## Rule Types
+Each rule produces:
 
 
 
@@ -14,17 +14,11 @@ Rules define what is allowed or blocked.
 
 \- BLOCK
 
-
-
-\## Properties
+\- ESCALATE
 
 
 
-\- Deterministic
-
-\- Versioned
-
-\- Precompiled
+\---
 
 
 
@@ -32,17 +26,37 @@ Rules define what is allowed or blocked.
 
 
 
-Rules are evaluated only after:
+\- rules are evaluated in order
 
-\- Input is valid
+\- first matching rule wins
 
-\- Input is complete
-
-
-
-\## No Match
+\- no match → ESCALATE (or fallback rule)
 
 
 
-If no rule matches → ESCALATE
+\---
+
+
+
+\## Requirements
+
+
+
+\- must be deterministic
+
+\- must use schema fields only
+
+\- must be complete (no gaps)
+
+
+
+\---
+
+
+
+\## Principle
+
+
+
+Rules encode policy, not interpretation.
 

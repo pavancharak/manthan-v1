@@ -3,13 +3,16 @@ import { SignalFieldMapping } from "../signals/mapper";
 import {
   executeDecisionInputRequest,
   executeSignalRequest,
-  ExecutionContext,
 } from "./sdk";
 
 export interface ExecutionApiResponse {
   status: number;
   body: unknown;
 }
+
+// --------------------------------------
+// VALIDATORS
+// --------------------------------------
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -19,11 +22,15 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+// --------------------------------------
+// API HANDLER (FINAL)
+// --------------------------------------
+
 export function handleExecutionApiRequest(
-  context: ExecutionContext,
   payload: unknown
 ): ExecutionApiResponse {
   try {
+    // ✅ basic validation
     if (!isPlainObject(payload)) {
       return { status: 400, body: { error: "invalid_request" } };
     }
@@ -32,34 +39,57 @@ export function handleExecutionApiRequest(
       return { status: 400, body: { error: "invalid_intent" } };
     }
 
+    if (!isNonEmptyString(payload.intent_version)) {
+      return { status: 400, body: { error: "missing_intent_version" } };
+    }
+
+    // --------------------------------------
+    // DECISION INPUT MODE
+    // --------------------------------------
+
     if (payload.mode === "decision_input") {
       if (!isPlainObject(payload.input)) {
         return { status: 400, body: { error: "invalid_input" } };
       }
 
+      const result = executeDecisionInputRequest({
+        intent: payload.intent,
+        intent_version: payload.intent_version, // ✅ FIX
+        input: payload.input as DecisionInput,
+      });
+
       return {
         status: 200,
-        body: executeDecisionInputRequest(context, {
-          intent: payload.intent,
-          input: payload.input as DecisionInput,
-        }),
+        body: result,
       };
     }
+
+    // --------------------------------------
+    // SIGNAL BATCH MODE
+    // --------------------------------------
 
     if (payload.mode === "signal_batch") {
+      const result = executeSignalRequest({
+        intent: payload.intent,
+        intent_version: payload.intent_version, // ✅ FIX
+        raw_signal_batch: payload.raw_signal_batch,
+        mappings: Array.isArray(payload.mappings)
+          ? (payload.mappings as SignalFieldMapping[])
+          : undefined,
+      });
+
       return {
         status: 200,
-        body: executeSignalRequest(context, {
-          intent: payload.intent,
-          raw_signal_batch: payload.raw_signal_batch,
-          mappings: Array.isArray(payload.mappings)
-            ? (payload.mappings as SignalFieldMapping[])
-            : undefined,
-        }),
+        body: result,
       };
     }
 
+    // --------------------------------------
+    // INVALID MODE
+    // --------------------------------------
+
     return { status: 400, body: { error: "invalid_mode" } };
+
   } catch (error) {
     return {
       status: 400,

@@ -1,5 +1,8 @@
 import { execute } from "../core/engine";
-import { DecisionInput, DecisionResult, RuleSet, Schema } from "../core/types";
+import { loadIntent } from "../core/intentLoader";
+
+import { DecisionInput, DecisionResult, RuleSet } from "../core/types";
+
 import { ingestSignalBatch } from "../signals/ingest";
 import {
   DecisionInputMappingResult,
@@ -8,22 +11,26 @@ import {
 } from "../signals/mapper";
 import { SignalBatch } from "../signals/types";
 
-export interface ExecutionContext {
-  schema: Schema;
-  rule_set: RuleSet;
-  mappings?: SignalFieldMapping[];
-}
+// --------------------------------------
+// REQUEST TYPES
+// --------------------------------------
 
 export interface DecisionInputExecutionRequest {
   intent: string;
+  intent_version: string; // ✅ REQUIRED
   input: DecisionInput;
 }
 
 export interface SignalExecutionRequest {
   intent: string;
+  intent_version: string; // ✅ REQUIRED
   raw_signal_batch: unknown;
   mappings?: SignalFieldMapping[];
 }
+
+// --------------------------------------
+// RESPONSE TYPES
+// --------------------------------------
 
 export interface DecisionInputExecutionResult {
   mode: "decision_input";
@@ -40,44 +47,76 @@ export interface SignalExecutionResult {
   rule_set: RuleSet;
 }
 
+// --------------------------------------
+// DECISION INPUT EXECUTION
+// --------------------------------------
+
 export function executeDecisionInputRequest(
-  context: ExecutionContext,
   request: DecisionInputExecutionRequest
 ): DecisionInputExecutionResult {
+  if (!request.intent_version) {
+    throw new Error("Missing intent_version");
+  }
+
+  const { schema, ruleSet } = loadIntent(
+    request.intent,
+    request.intent_version
+  );
+
+  const decision_result = execute(
+    request.intent,
+    request.input,
+    schema,
+    ruleSet
+  );
+
   return {
     mode: "decision_input",
     decision_input: request.input,
-    decision_result: execute(
-      request.intent,
-      request.input,
-      context.schema,
-      context.rule_set
-    ),
-    rule_set: context.rule_set,
+    decision_result,
+    rule_set: ruleSet,
   };
 }
 
+// --------------------------------------
+// SIGNAL EXECUTION
+// --------------------------------------
+
 export function executeSignalRequest(
-  context: ExecutionContext,
   request: SignalExecutionRequest
 ): SignalExecutionResult {
+  if (!request.intent_version) {
+    throw new Error("Missing intent_version");
+  }
+
+  const { schema, ruleSet } = loadIntent(
+    request.intent,
+    request.intent_version
+  );
+
+  // Step 1: ingest signals
   const signal_batch = ingestSignalBatch(request.raw_signal_batch);
+
+  // Step 2: map signals → decision input
   const mapping_result = mapSignalsToDecisionInput(
     signal_batch,
-    context.schema,
-    request.mappings ?? context.mappings ?? []
+    schema,
+    request.mappings ?? []
+  );
+
+  // Step 3: execute decision
+  const decision_result = execute(
+    request.intent,
+    mapping_result.decision_input,
+    schema,
+    ruleSet
   );
 
   return {
     mode: "signal_batch",
     signal_batch,
     mapping_result,
-    decision_result: execute(
-      request.intent,
-      mapping_result.decision_input,
-      context.schema,
-      context.rule_set
-    ),
-    rule_set: context.rule_set,
+    decision_result,
+    rule_set: ruleSet,
   };
 }

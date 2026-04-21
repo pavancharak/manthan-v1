@@ -1,5 +1,3 @@
-import { DecisionInput, Schema, ValidationResult } from "../core/types";
-
 function isValueOfType(
   value: unknown,
   expectedType: "string" | "number" | "boolean"
@@ -14,15 +12,16 @@ function isValueOfType(
   }
 }
 
-export function validateInput(
-  schema: Schema,
-  input: DecisionInput
-): ValidationResult {
+export function validateInput(schema: any, input: any) {
   const missing_fields: string[] = [];
-  const invalidTypeErrors: string[] = [];
+  const errors: string[] = [];
 
-  for (const key of Object.keys(input)) {
-    if (!schema.fields[key]) {
+  const fields = schema.system_fields || {};
+  const data = input.system_data || {};
+
+  // 🔹 check unexpected fields
+  for (const key of Object.keys(data)) {
+    if (!fields[key]) {
       return {
         isValid: false,
         isComplete: false,
@@ -32,24 +31,26 @@ export function validateInput(
     }
   }
 
-  for (const [field, config] of Object.entries(schema.fields)) {
-    const value = input[field];
+  // 🔹 validate expected fields
+  for (const [field, type] of Object.entries(fields)) {
+    const value = data[field];
 
-    if (config.required && value === undefined) {
+    if (value === undefined) {
       missing_fields.push(field);
       continue;
     }
 
-    if (value !== undefined && !isValueOfType(value, config.type)) {
-      invalidTypeErrors.push(`Invalid type for ${field}`);
+    if (!isValueOfType(value, type as any)) {
+      errors.push(`Invalid type for ${field}`);
     }
   }
 
-  if (invalidTypeErrors.length > 0) {
+  // 🔹 invalid takes precedence
+  if (errors.length > 0) {
     return {
       isValid: false,
       isComplete: false,
-      errors: invalidTypeErrors,
+      errors,
       missing_fields: [],
     };
   }

@@ -2,37 +2,49 @@
 
 
 
-Signals represent raw input from systems.
+Signals are deterministic inputs used in decisions.
 
 
 
-\## Sources
+\---
 
 
 
-\- GitHub PRs
-
-\- APIs
-
-\- Events
+\## Requirements
 
 
 
-\## Processing
+\- must be verifiable
+
+\- must be reproducible
+
+\- must not be subjective
 
 
 
-Signals → Mapping → Decision Input
+\---
 
 
 
-\## Constraints
+\## Avoid
 
 
 
-\- Must be structured
+\- risk\_level
 
-\- Must be deterministic after mapping
+\- confidence scores
 
-\- AI allowed only for generating signals, not decisions
+\- AI-only outputs
+
+
+
+\---
+
+
+
+\## Principle
+
+
+
+Manthan evaluates facts, not interpretations.
 

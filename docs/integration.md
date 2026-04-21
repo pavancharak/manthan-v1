@@ -2,59 +2,39 @@
 
 
 
-\## SDK Example
+Operator integrates with Manthan Core.
 
 
 
-import { executeDecisionInput } from "../execution/sdk";
+\---
 
 
 
-const result = executeDecisionInput({
-
-&#x20; input,
-
-&#x20; context: {
-
-&#x20;   schema,
-
-&#x20;   rule\_set
-
-&#x20; }
-
-});
+\## Flow
 
 
 
-\## API
+1\. Build decision input
+
+2\. Call /evaluate
+
+3\. Receive decision result
+
+4\. Execute action
 
 
 
-POST /evaluate
+\---
 
 
 
-Body:
-
-{
-
-&#x20; decision\_input,
-
-&#x20; schema,
-
-&#x20; rule\_set
-
-}
+\## Requirements
 
 
 
-\## Use Cases
+\- must include intent + version
 
+\- must match schema
 
-
-\- GitHub PR Gate
-
-\- Payment validation
-
-\- Access control
+\- must handle all statuses
 

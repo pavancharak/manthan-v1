@@ -1,27 +1,29 @@
-import { DecisionInput } from "../core/types";
-import { SignalFieldMapping } from "../signals/mapper";
 import {
   executeDecisionInputRequest,
   executeSignalRequest,
-  ExecutionContext,
 } from "./sdk";
 
-export function runDecisionInputIntegration(
-  context: ExecutionContext,
+export function handleDecision(
   intent: string,
-  input: DecisionInput
+  intent_version: string,
+  input: any
 ) {
-  return executeDecisionInputRequest(context, { intent, input });
+  return executeDecisionInputRequest({
+    intent,
+    intent_version,
+    input,
+  });
 }
 
-export function runSignalIntegration(
-  context: ExecutionContext,
+export function handleSignals(
   intent: string,
+  intent_version: string,
   raw_signal_batch: unknown,
-  mappings?: SignalFieldMapping[]
+  mappings?: any
 ) {
-  return executeSignalRequest(context, {
+  return executeSignalRequest({
     intent,
+    intent_version,
     raw_signal_batch,
     mappings,
   });

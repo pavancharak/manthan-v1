@@ -1,0 +1,38 @@
+{
+  "rule_version": "v1",
+  "rules": [
+    {
+      "id": "block-unapproved",
+      "group": 1,
+      "order": 1,
+      "condition": {
+        "field": "system_data.isApproved",
+        "operator": "eq",
+        "value": false
+      },
+      "outcome": "BLOCK"
+    },
+    {
+      "id": "block-new-commits-after-approval",
+      "group": 1,
+      "order": 2,
+      "condition": {
+        "field": "system_data.hasNewCommitsAfterApproval",
+        "operator": "eq",
+        "value": true
+      },
+      "outcome": "BLOCK"
+    },
+    {
+      "id": "allow-safe-merge",
+      "group": 2,
+      "order": 1,
+      "condition": {
+        "field": "system_data.isApproved",
+        "operator": "eq",
+        "value": true
+      },
+      "outcome": "ALLOW"
+    }
+  ]
+}

@@ -2,41 +2,45 @@
 
 
 
-\## Does Manthan use AI?
+\## Can operator override decision?
 
 
 
-No. AI is not used in decision-making.
+No. Decisions are non-bypassable.
 
 
 
-\## What happens if data is missing?
+\---
 
 
 
-ESCALATE
+\## What is ESCALATE?
 
 
 
-\## What happens if input is invalid?
+A decision to defer to external authority.
 
 
 
-REJECT
+\---
 
 
 
-\## Can rules change at runtime?
+\## What is INCOMPLETE?
 
 
 
-No. Rules must be compiled before execution.
+Missing data. Must retry with complete input.
 
 
 
-\## Is it deterministic?
+\---
 
 
 
-Yes. Always.
+\## Does core use AI?
+
+
+
+No. Core is fully deterministic.
 

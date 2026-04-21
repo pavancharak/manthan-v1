@@ -2,49 +2,49 @@
 
 
 
-Schema defines required structure of Decision Input.
+Schema defines the \*\*structure of input\*\* required for a decision.
 
 
 
-\## Responsibilities
+\---
 
 
 
-\- Define required fields
-
-\- Define types
-
-\- Define structure
+\## Purpose
 
 
 
-\## Validation Rules
+\- defines required fields
+
+\- defines data types
+
+\- defines completeness
 
 
 
-\- Missing required field → ESCALATE
-
-\- Invalid type → REJECT
-
-\- Extra field → REJECT
+\---
 
 
 
-\## Example
+\## Behavior
 
 
 
-{
+\- invalid structure → INVALID
 
-&#x20; "fields": {
+\- missing required fields → INCOMPLETE
 
-&#x20;   "amount": "number",
 
-&#x20;   "userId": "string"
 
-&#x20; },
+\---
 
-&#x20; "required": \["amount", "userId"]
 
-}
+
+\## Principle
+
+
+
+Schema defines what can be known.
+
+Rules define what is allowed.
 

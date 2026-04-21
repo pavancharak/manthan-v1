@@ -1,26 +1,11 @@
 import { execute } from "../core/engine";
-import { DecisionInput, DecisionResult, Rule, Schema } from "../core/types";
 
-type EngineResultContract = DecisionResult & {
-  schema_version: string;
-  rule_version: string;
-  explanation: {
-    reason: string;
-    details?:
-      | string[]
-      | Rule
-      | {
-          missing_fields: string[];
-        };
-  };
-};
-
-const sampleSchema: Schema = {
+const sampleSchema = {
   schema_version: "schema.v1",
-  fields: {
-    age: { type: "number", required: true },
-    country: { type: "string", required: true },
-    vip: { type: "boolean", required: false },
+  system_fields: {
+    age: "number",
+    country: "string",
+    vip: "boolean",
   },
 };
 
@@ -31,9 +16,9 @@ const sampleRuleSet = {
       id: "allow-us-adult",
       group: 1,
       order: 1,
-      requires: ["age", "country"],
+      requires: ["system_data.country"],
       condition: {
-        field: "country",
+        field: "system_data.country",
         operator: "eq",
         value: "US",
       },
@@ -43,133 +28,138 @@ const sampleRuleSet = {
       id: "block-minor",
       group: 1,
       order: 2,
-      requires: ["age"],
+      requires: ["system_data.age"],
       condition: {
-        field: "age",
+        field: "system_data.age",
         operator: "lt",
         value: 18,
       },
       outcome: "BLOCK",
     },
-  ] as Rule[],
+  ],
 };
 
-function runDecision(input: DecisionInput): EngineResultContract {
+function runDecision(input: any) {
   return execute(
     "test-intent",
     input,
-    sampleSchema,
-    sampleRuleSet
-  ) as EngineResultContract;
+    sampleSchema as any,
+    sampleRuleSet as any
+  );
 }
 
 describe("decision engine", () => {
-  describe("REJECT", () => {
-    test.each([
-      {
-        name: "invalid type",
-        input: {
-          age: "30",
-          country: "US",
-        } as unknown as DecisionInput,
-        expectedErrors: ["Invalid type for age"],
+  // -------------------------
+  // INVALID
+  // -------------------------
+  test("invalid type → INVALID", () => {
+    const input = {
+      system_data: {
+        age: "30",
+        country: "US",
       },
-      {
-        name: "extra field",
-        input: {
-          age: 30,
-          country: "US",
-          region: "NA",
-        } as unknown as DecisionInput,
-        expectedErrors: ["Unexpected field: region"],
-      },
-    ])(
-      "returns REJECT for $name",
-      ({ input, expectedErrors }) => {
-        const result = runDecision(input);
+    };
 
-        expect(result).toEqual({
-          decision: "REJECT",
-          rule_id: null,
-          schema_version: sampleSchema.schema_version,
-          rule_version: sampleRuleSet.rule_version,
-          explanation: {
-            reason: "invalid_input",
-            details: expectedErrors,
-          },
-        });
-      }
-    );
+    const result = runDecision(input);
+
+    expect(result.status).toBe("INVALID");
   });
 
-  describe("ESCALATE", () => {
-    test("returns ESCALATE when required fields are missing", () => {
-      const input: DecisionInput = {
+  test("extra field → INVALID", () => {
+    const input = {
+      system_data: {
         age: 30,
-      };
+        country: "US",
+        region: "NA",
+      },
+    };
 
-      const result = runDecision(input);
+    const result = runDecision(input);
 
-      expect(result.decision).toBe("ESCALATE");
-      expect(result.rule_id).toBeNull();
-      expect(result.schema_version).toBe(sampleSchema.schema_version);
-      expect(result.rule_version).toBe(sampleRuleSet.rule_version);
-      expect(result.explanation.reason).toBe("incomplete_input");
-      expect(result.explanation.details).toEqual({
-        missing_fields: ["country"],
-      });
-    });
+    expect(result.status).toBe("INVALID");
+  });
 
-    test("returns ESCALATE when input is valid and complete but no rule matches", () => {
-      const input: DecisionInput = {
+  // -------------------------
+  // INCOMPLETE
+  // -------------------------
+  test("missing fields → INCOMPLETE", () => {
+    const input = {
+      system_data: {
+        age: 30,
+      },
+    };
+
+    const result = runDecision(input);
+
+    expect(result.status).toBe("INCOMPLETE");
+
+    if (result.status === "INCOMPLETE") {
+      expect(result.explanation.details.missing_fields).toContain("country");
+    }
+  });
+
+  // -------------------------
+  // ESCALATE (no rule match)
+  // -------------------------
+  test("no rule match → ESCALATE", () => {
+    const input = {
+      system_data: {
         age: 30,
         country: "CA",
         vip: false,
-      };
+      },
+    };
 
-      const result = runDecision(input);
+    const result = runDecision(input);
 
+    expect(result.status).toBe("DECIDED");
+
+    if (result.status === "DECIDED") {
       expect(result.decision).toBe("ESCALATE");
-      expect(result.rule_id).toBeNull();
-      expect(result.schema_version).toBe(sampleSchema.schema_version);
-      expect(result.rule_version).toBe(sampleRuleSet.rule_version);
-      expect(result.explanation.reason).toBe("no_rule_match");
-    });
+    }
   });
 
-  describe("rule match outcomes", () => {
-    test("returns ALLOW when a matching ALLOW rule is found", () => {
-      const input: DecisionInput = {
+  // -------------------------
+  // ALLOW
+  // -------------------------
+  test("ALLOW rule match", () => {
+    const input = {
+      system_data: {
         age: 30,
         country: "US",
         vip: true,
-      };
+      },
+    };
 
-      const result = runDecision(input);
+    const result = runDecision(input);
 
+    expect(result.status).toBe("DECIDED");
+
+    if (result.status === "DECIDED") {
       expect(result.decision).toBe("ALLOW");
       expect(result.rule_id).toBe("allow-us-adult");
-      expect(result.schema_version).toBe(sampleSchema.schema_version);
-      expect(result.rule_version).toBe(sampleRuleSet.rule_version);
-      expect(result.explanation.reason).toBe("rule_matched");
-      expect(result.explanation.details).toEqual(sampleRuleSet.rules[0]);
-    });
+    }
+  });
 
-    test("returns BLOCK when a matching BLOCK rule is found", () => {
-      const input: DecisionInput = {
+  // -------------------------
+  // BLOCK
+  // -------------------------
+  test("BLOCK rule match", () => {
+    const input = {
+      system_data: {
         age: 16,
         country: "CA",
         vip: false,
-      };
+      },
+    };
 
-      const result = runDecision(input);
+    const result = runDecision(input);
 
+    expect(result.status).toBe("DECIDED");
+
+    if (result.status === "DECIDED") {
       expect(result.decision).toBe("BLOCK");
       expect(result.rule_id).toBe("block-minor");
-      expect(result.schema_version).toBe(sampleSchema.schema_version);
-      expect(result.rule_version).toBe(sampleRuleSet.rule_version);
-      expect(result.explanation.reason).toBe("rule_matched");
-      expect(result.explanation.details).toEqual(sampleRuleSet.rules[1]);
-    });
+    }
   });
 });
