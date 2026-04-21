@@ -1,582 +1,201 @@
-\# MANTHAN v1
-
-
-
-> Deterministic Decision Infrastructure
-
-> Every decision is traceable, auditable, and built for trust.
-
-
-
-\---
-
-
-
-\## 🧠 What is Manthan?
-
-
-
-Manthan is a \*\*deterministic decision system\*\* that evaluates structured inputs against defined rules and produces \*\*guaranteed, reproducible outcomes\*\*.
-
-
-
-It is designed to act as a \*\*Decision Operating System\*\* — not a recommendation engine, not an AI system.
-
-
-
-\---
-
-
-
-\## 🔒 Core Principle
-
-
-
-```
-
-Same Decision Input → Same Decision Outcome
-
-```
-
-
-
-No randomness.
-
-No hidden logic.
-
-No runtime mutation.
-
-
-
-\---
-
-
-
-\## ⚙️ Decision Pipeline
-
-
-
-```
-
-Signals → Mapping → Validation → Rule Evaluation → Decision
-
-```
-
-
-
-\### 1. Signals
-
-
-
-Structured inputs representing real-world events or system state.
-
-
-
-\### 2. Mapping
-
-
-
-Transforms signals into \*\*Decision Input\*\* using strict, non-AI mapping.
-
-
-
-\### 3. Validation
-
-
-
-Ensures:
-
-
-
-\* Schema compliance
-
-\* Required fields present
-
-\* No unexpected data
-
-
-
-Outcomes:
-
-
-
-\* Invalid → REJECT
-
-\* Incomplete → ESCALATE
-
-
-
-\### 4. Rule Evaluation
-
-
-
-Precompiled rules are applied deterministically.
-
-
-
-Outcomes:
-
-
-
-\* ALLOW
-
-\* BLOCK
-
-\* ESCALATE (no rule match)
-
-\* REJECT (invalid input)
-
-
-
-\---
-
-
-
-\## 🧾 Decision Outcomes
-
-
-
-| Outcome  | Meaning                                      |
-
-| -------- | -------------------------------------------- |
-
-| ALLOW    | Action permitted                             |
-
-| BLOCK    | Action denied                                |
-
-| ESCALATE | Cannot decide (missing or insufficient data) |
-
-| REJECT   | Invalid or malformed input                   |
-
-
-
-\---
-
-
-
-\## 🏗️ Architecture
-
-
-
-```
-
-core/          → deterministic engine, validator, compiler
-
-signals/       → signal ingestion \& normalization
-
-rules/         → rule definitions
-
-schema/        → input schema definitions
-
-execution/     → API, SDK, integrations (thin layer)
-
-ai/            → suggestions only (never used in decisions)
-
-tests/         → full system validation
-
-```
-
-
-
-\---
-
-
-
-\## 🚫 What Manthan is NOT
-
-
-
-\* ❌ Not AI decision-making
-
-\* ❌ Not probabilistic
-
-\* ❌ Not heuristic-based
-
-\* ❌ Not mutable at runtime
-
-
-
-\---
-
-
-
-\## 🤖 Role of AI
-
-
-
-AI is \*\*strictly optional\*\* and used only for:
-
-
-
-\* Signal generation
-
-\* Suggestions
-
-\* Developer experience
-
-
-
-AI is \*\*never used in decision evaluation\*\*.
-
-
-
-\---
-
-
-
-\## 🔐 Determinism Guarantee
-
-
-
-Manthan guarantees:
-
-
-
-\* No default values
-
-\* No hidden transformations
-
-\* No rule mutation
-
-\* No runtime compilation
-
-\* No dependency on external systems
-
-
-
-All decisions are:
-
-
-
-\* Reproducible
-
-\* Explainable
-
-\* Version-bound
-
-
-
-\---
-
-
-
-\## 🧩 Execution Model
-
-
-
-Rules are:
-
-
-
-```
-
-Defined → Compiled → Executed
-
-```
-
-
-
-Compilation happens \*\*before runtime\*\*.
-
-
-
-Execution uses:
-
-
-
-```ts
-
-ExecutionContext {
-
-&#x20; schema
-
-&#x20; rule\_set (precompiled)
-
-}
-
-```
-
-
-
-\---
-
-
-
-\## 🚀 Usage Example
-
-
-
-```ts
-
-import { executeDecisionInput } from "./execution/sdk";
-
-
-
-const result = executeDecisionInput({
-
-&#x20; input: decisionInput,
-
-&#x20; context: {
-
-&#x20;   schema,
-
-&#x20;   rule\_set
-
-&#x20; }
-
-});
-
-
-
-console.log(result.outcome);
-
-```
-
-
-
-\---
-
-
-
-\## 🧪 Testing
-
-
-
-```bash
-
-npm test
-
-```
-
-
-
-All core modules are covered:
-
-
-
-\* engine
-
-\* validator
-
-\* compiler
-
-\* signals
-
-\* mapper
-
-\* execution
-
-
-
-\---
-
-
-
-\## 📦 Versioning
-
-
-
-Every decision must be tied to:
-
-
-
-\* Schema version
-
-\* Rule version
-
-
+# Manthan
+
+**Decisions, backed by proof.**
+
+Manthan is a **deterministic decision infrastructure** that ensures every decision is:
+
+- traceable  
+- auditable  
+- reproducible  
+- based on verifiable truth  
+
+---
+
+# 🧠 What Manthan Does
+
+Manthan evaluates structured input against:
+
+- a **Schema** (what data must exist)
+- a **Rule Set** (what is allowed)
+
+and produces a **deterministic decision outcome**.
+
+```txt
+DecisionInput → Validation → Rules → DecisionResult
+⚙️ Core Properties
+Deterministic
+Same input → same decision
+Fail-Closed
+No decision is made under uncertainty
+Auditable
+Every decision includes rule + explanation
+Replayable
+Decisions can be re-executed and verified
+Immutable
+Rules and schemas are versioned and locked
+📦 Decision Outcomes
+
+Manthan produces exactly one:
+
+INVALID      → malformed input
+INCOMPLETE   → missing required data
+DECIDED      → evaluation complete
+
+If DECIDED:
+
+ALLOW | BLOCK | ESCALATE
+🧱 Architecture
+Intent + Version
+        ↓
+Schema + Rule Set
+        ↓
+Signals (optional) → Mapping
+        ↓
+DecisionInput
+        ↓
+Decision Engine (deterministic)
+        ↓
+DecisionResult
+        ↓
+Event Log (hash)
+        ↓
+Replay + Verification
+📁 Project Structure
+core/        → engine, evaluator, types
+schema/      → input definitions (versioned)
+rules/       → decision logic (versioned)
+signals/     → ingestion + mapping layer
+execution/   → API + SDK layer
+scripts/     → verification + tooling
+tests/       → full system test coverage
+docs/        → system specification
+🔄 Execution Modes
+1. Decision Input Mode
+executeDecisionInputRequest({
+  intent: "pr_merge_safety",
+  intent_version: "v1",
+  input: {
+    system_data: {
+      isApproved: true,
+      hasNewCommitsAfterApproval: false
+    }
+  }
+})
+2. Signal Batch Mode
+executeSignalRequest({
+  intent: "pr_merge_safety",
+  intent_version: "v1",
+  raw_signal_batch: {...},
+  mappings: [...]
+})
+🔐 Trust Model
 
 Manthan enforces:
 
+Do not trust inputs. Prove them.
+Signals are untrusted → validated → mapped
+Schema defines truth boundary
+Rules enforce decisions
+Every decision is logged and hashed
+🧾 Event Logging
 
+Every decision produces:
 
-```
+{
+  "intent": "...",
+  "intent_version": "...",
+  "decision_input": {...},
+  "decision_result": {...},
+  "timestamp": "...",
+  "hash": "sha256(...)"
+}
+🔁 Replay & Verification
 
-What is published = what is active
+Logged decisions can be replayed:
 
-```
+Stored Input → Re-execute → Compare
 
+Guarantees:
 
-
-No retroactive rule changes.
-
-
-
-\---
-
-
-
-\## 🛠️ Setup
-
-
-
-```bash
-
+deterministic correctness
+system integrity
+auditability
+🧪 Commands
+# install
 npm install
 
+# test
 npm test
 
-```
+# build
+npx tsc
 
+# full check (build + test)
+npm run check
 
+# verify system
+npm run verify
 
-\---
+# run webhook (dev)
+npm run dev:webhook
+⚠️ System Constraints
 
+Manthan core MUST NOT:
 
+fetch external data
+call APIs
+use AI
+mutate input
+depend on runtime state
+🤖 AI Boundary
 
-\## 📌 Design Constraints
+AI may:
 
+suggest signals
+suggest rules
 
+AI must NEVER:
 
-\* Core modules are \*\*immutable\*\*
+influence decisions
+modify rules at runtime
+bypass schema or validation
+🧠 Design Principle
+Decision = Pure Function
 
-\* Execution layer is \*\*pure\*\*
+DecisionInput → DecisionResult
 
-\* Signals are \*\*bounded inputs\*\*
+No side effects. No ambiguity.
 
-\* Schema defines \*\*what is required\*\*
+🚀 Versioning
+v1 = immutable
+new behavior → new version
+schema/v1 → locked
+rules/v1  → locked
+📚 Documentation
 
-\* Rules define \*\*what is allowed\*\*
+See /docs for full system specification:
 
+architecture
+schema
+rules
+signals
+execution
+decision flow
+outcomes
+🔥 Summary
 
+Manthan is not a rules engine.
 
-\---
+It is a trust infrastructure that:
 
+computes decisions deterministically
+records them immutably
+verifies them cryptographically
+replays them reproducibly
+📌 Tag
+v1.0.0 — Deterministic Decision Infrastructure
+🧠 Philosophy
 
+Every decision must be:
 
-\## 🔍 Observability
-
-
-
-Manthan supports:
-
-
-
-\* Decision traceability
-
-\* Rule-level explanations
-
-\* Deterministic audit logs
-
-
-
-\---
-
-
-
-\## 🧠 Philosophy
-
-
-
-Manthan separates:
-
-
-
-```
-
-Understanding (AI) ≠ Decision (Deterministic System)
-
-```
-
-
-
-This ensures:
-
-
-
-\* Trust
-
-\* Auditability
-
-\* Compliance
-
-\* Stability
-
-
-
-\---
-
-
-
-\## 🚧 Future Layers (Additive Only)
-
-
-
-\* GitHub PR Gate
-
-\* Rule Management Portal
-
-\* Decision Dashboard
-
-\* Cost \& Coverage Optimization
-
-
-
-\---
-
-
-
-\## 🔒 System Status
-
-
-
-```
-
-Manthan v1 — LOCKED
-
-```
-
-
-
-\* Core: immutable
-
-\* Execution: stable
-
-\* Tests: passing
-
-\* Ready for production use
-
-
-
-\---
-
-
-
-\## 📄 License
-
-
-
-MIT (or your choice)
-
-
-
-\---
-
-
-
-\## ✨ Summary
-
-
-
-Manthan is not a tool.
-
-
-
-It is a \*\*decision infrastructure layer\*\* that ensures every decision is:
-
-
-
-\* Deterministic
-
-\* Explainable
-
-\* Auditable
-
-\* Trustworthy
-
-
-
-\---
-
-
-
+traceable, auditable, and built for trust.
