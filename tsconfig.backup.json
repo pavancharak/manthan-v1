@@ -10,16 +10,11 @@
     "skipLibCheck": true
   },
   "include": [
-    "index.ts",
+    "apps/core-server/**/*.ts",
     "core/**/*.ts",
     "execution/**/*.ts",
     "rules/**/*.ts",
-    "signals/**/*.ts",
     "schema/**/*.json"
   ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "tests"
-  ]
+  "exclude": ["node_modules", "dist"]
 }

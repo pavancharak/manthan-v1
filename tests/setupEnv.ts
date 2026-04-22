@@ -1,0 +1,1 @@
+process.env.MANTHAN_SECRET = "test-secret";

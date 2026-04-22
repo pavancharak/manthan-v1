@@ -11,6 +11,8 @@ import {
 } from "../signals/mapper";
 import { SignalBatch } from "../signals/types";
 
+import { createDecisionToken } from "./token";
+
 // --------------------------------------
 // HELPERS
 // --------------------------------------
@@ -39,26 +41,37 @@ export interface SignalExecutionRequest {
 }
 
 // --------------------------------------
-// RESPONSE TYPES
+// RESPONSE TYPES (UPDATED)
 // --------------------------------------
 
 export interface DecisionInputExecutionResult {
   mode: "decision_input";
   intent: string;
   intent_version: string;
-  decision_input: DecisionInput;
   decision_result: DecisionResult;
-  rule_set: RuleSet;
+
+  // ✅ NEW
+  decision_token: string;
 }
 
 export interface SignalExecutionResult {
   mode: "signal_batch";
   intent: string;
   intent_version: string;
-  signal_batch: SignalBatch;
-  mapping_result: DecisionInputMappingResult;
   decision_result: DecisionResult;
-  rule_set: RuleSet;
+
+  // ✅ NEW
+  decision_token: string;
+}
+
+// --------------------------------------
+// SAFE DECISION EXTRACTION
+// --------------------------------------
+
+function getSafeDecision(result: DecisionResult): string {
+  return result.status === "DECIDED"
+    ? result.decision
+    : "ESCALATE";
 }
 
 // --------------------------------------
@@ -85,7 +98,7 @@ export function executeDecisionInputRequest(
     { debug: request.debug }
   );
 
-  // ✅ EVENT LOGGING (non-blocking, side-effect safe)
+  // ✅ EVENT LOGGING
   logDecisionEvent({
     intent: request.intent,
     intent_version: request.intent_version,
@@ -93,13 +106,25 @@ export function executeDecisionInputRequest(
     decision_result,
   });
 
+  const allowed_actions = ["merge_pr"];
+
+  const safeDecision = getSafeDecision(decision_result);
+
+  // ✅ TOKEN CREATION (REPLACES SIGNATURE FLOW)
+  const token = createDecisionToken({
+    decision_input: request.input as any,
+    signals: {},
+    rule_snapshot: ruleSet as any,
+    allowed_actions,
+    decision: safeDecision,
+  });
+
   return {
     mode: "decision_input",
     intent: request.intent,
     intent_version: request.intent_version,
-    decision_input: request.input,
     decision_result,
-    rule_set: ruleSet,
+    decision_token: token,
   };
 }
 
@@ -135,7 +160,7 @@ export function executeSignalRequest(
     { debug: request.debug }
   );
 
-  // ✅ EVENT LOGGING (non-blocking, side-effect safe)
+  // ✅ EVENT LOGGING
   logDecisionEvent({
     intent: request.intent,
     intent_version: request.intent_version,
@@ -143,13 +168,24 @@ export function executeSignalRequest(
     decision_result,
   });
 
+  const allowed_actions = ["merge_pr"];
+
+  const safeDecision = getSafeDecision(decision_result);
+
+  // ✅ TOKEN CREATION
+  const token = createDecisionToken({
+    decision_input: mapping_result.decision_input as any,
+    signals: signal_batch as any,
+    rule_snapshot: ruleSet as any,
+    allowed_actions,
+    decision: safeDecision,
+  });
+
   return {
     mode: "signal_batch",
     intent: request.intent,
     intent_version: request.intent_version,
-    signal_batch,
-    mapping_result,
     decision_result,
-    rule_set: ruleSet,
+    decision_token: token,
   };
 }

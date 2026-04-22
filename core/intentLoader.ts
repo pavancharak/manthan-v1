@@ -10,11 +10,10 @@ export function loadIntent(
   schema: Schema;
   ruleSet: RuleSet;
 } {
-  const basePath = path.join(__dirname, "..");
+  const basePath = path.join(process.cwd(), "core", "intents");
 
   const schemaPath = path.join(
     basePath,
-    "schema",
     intent,
     version,
     "schema.json"
@@ -22,11 +21,12 @@ export function loadIntent(
 
   const rulesPath = path.join(
     basePath,
-    "rules",
     intent,
     version,
-    "rule_set.json"
+    "rules.json"
   );
+console.log("SCHEMA PATH:", schemaPath);
+console.log("RULES PATH:", rulesPath);
 
   if (!fs.existsSync(schemaPath)) {
     throw new Error(`Schema not found for ${intent}@${version}`);
