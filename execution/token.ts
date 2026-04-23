@@ -10,6 +10,10 @@ export interface DecisionTokenPayload {
   rule_snapshot: Record<string, unknown>;
   allowed_actions: string[];
   decision: string;
+
+  // ✅ NEW (STRUCTURED TRACE)
+  trace?: Record<string, unknown>;
+
   proof_hash: string;
   signature: string;
 }
@@ -66,13 +70,16 @@ function stableStringify(value: any): string {
 export function createDecisionToken(
   payload: Omit<DecisionTokenPayload, "proof_hash" | "signature">
 ): string {
-  // ✅ CLEAN + CANONICALIZE (NO undefined anywhere)
+  // ✅ CLEAN + CANONICALIZE
   const canonicalPayload = removeUndefined({
     decision_input: payload.decision_input ?? {},
     signals: payload.signals ?? {},
     rule_snapshot: payload.rule_snapshot ?? {},
     allowed_actions: payload.allowed_actions ?? [],
     decision: payload.decision,
+
+    // ✅ NEW: trace included in hash + signature
+    trace: payload.trace,
   });
 
   // 🔐 deterministic hash
@@ -91,7 +98,7 @@ export function createDecisionToken(
     signature,
   };
 
-  // 🔥 encode using canonical stringify (sorted keys)
+  // 🔥 canonical encoding
   return Buffer.from(stableStringify(fullPayload)).toString("base64");
 }
 
@@ -118,7 +125,7 @@ export function decodeDecisionToken(token: string): DecisionTokenPayload {
   }
 
   // --------------------------------------
-  // ✅ CLEAN + CANONICALIZE (MATCH CREATION EXACTLY)
+  // ✅ CLEAN + CANONICALIZE (MATCH CREATION)
   // --------------------------------------
 
   const canonicalPayload = removeUndefined({
@@ -127,10 +134,13 @@ export function decodeDecisionToken(token: string): DecisionTokenPayload {
     rule_snapshot: decoded.rule_snapshot ?? {},
     allowed_actions: decoded.allowed_actions ?? [],
     decision: decoded.decision,
+
+    // ✅ MUST MATCH CREATE
+    trace: decoded.trace,
   });
 
   // --------------------------------------
-  // 🔐 VERIFY HASH (integrity)
+  // 🔐 VERIFY HASH
   // --------------------------------------
 
   const recomputedHash = computeProofHash(canonicalPayload);
@@ -140,7 +150,7 @@ export function decodeDecisionToken(token: string): DecisionTokenPayload {
   }
 
   // --------------------------------------
-  // 🔐 VERIFY SIGNATURE (authenticity)
+  // 🔐 VERIFY SIGNATURE
   // --------------------------------------
 
   const valid = verifySignature({

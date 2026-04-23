@@ -48,7 +48,7 @@ export interface DecisionInputExecutionResult {
   intent: string;
   intent_version: string;
   decision_result: DecisionResult;
-  explanation: any; // deterministic explanation
+  explanation: any;
   decision_token: string;
 }
 
@@ -98,13 +98,20 @@ export function executeDecisionInputRequest(
     { debug: request.debug }
   );
 
-  // ✅ Deterministic explanation
+  // ✅ NEW: extract trace
+  let trace = undefined;
+  if (
+    decision_result.status === "DECIDED" &&
+    decision_result.explanation.details
+  ) {
+    trace = (decision_result.explanation.details as any).__trace;
+  }
+
   const explanation = buildExplanation(
     decision_result,
     decisionInputData
   );
 
-  // ✅ EVENT LOGGING
   logDecisionEvent({
     intent: request.intent,
     intent_version: request.intent_version,
@@ -113,16 +120,17 @@ export function executeDecisionInputRequest(
   });
 
   const allowed_actions = ["merge_pr"];
-
   const safeDecision = getSafeDecision(decision_result);
 
-  // ✅ TOKEN CREATION
   const token = createDecisionToken({
     decision_input: decisionInputData as any,
     signals: {},
     rule_snapshot: ruleSet as any,
     allowed_actions,
     decision: safeDecision,
+
+    // ✅ FINAL STEP
+    trace,
   });
 
   return {
@@ -167,13 +175,20 @@ export function executeSignalRequest(
     { debug: request.debug }
   );
 
-  // ✅ Deterministic explanation
+  // ✅ NEW: extract trace
+  let trace = undefined;
+  if (
+    decision_result.status === "DECIDED" &&
+    decision_result.explanation.details
+  ) {
+    trace = (decision_result.explanation.details as any).__trace;
+  }
+
   const explanation = buildExplanation(
     decision_result,
     mapping_result.decision_input as any
   );
 
-  // ✅ EVENT LOGGING
   logDecisionEvent({
     intent: request.intent,
     intent_version: request.intent_version,
@@ -182,7 +197,6 @@ export function executeSignalRequest(
   });
 
   const allowed_actions = ["merge_pr"];
-
   const safeDecision = getSafeDecision(decision_result);
 
   const token = createDecisionToken({
@@ -191,6 +205,9 @@ export function executeSignalRequest(
     rule_snapshot: ruleSet as any,
     allowed_actions,
     decision: safeDecision,
+
+    // ✅ FINAL STEP
+    trace,
   });
 
   return {

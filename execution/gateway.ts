@@ -25,20 +25,13 @@ export async function executeWithVerification(
   executor: (action: string, params: any) => Promise<any>
 ) {
   // --------------------------------------
-  // 1. Decode + verify token (FULL TRUST BOUNDARY)
+  // 🔐 1. Decode + verify token
   // --------------------------------------
 
   const decoded = decodeDecisionToken(payload.decision_token);
 
-  // decoded contains:
-  // - decision_input
-  // - allowed_actions
-  // - decision
-  // - rule_snapshot
-  // - signals
-
   // --------------------------------------
-  // 2. Action allowlist
+  // 🔒 2. ACTION ALLOWLIST (FIRST)
   // --------------------------------------
 
   if (!decoded.allowed_actions.includes(payload.action)) {
@@ -46,7 +39,7 @@ export async function executeWithVerification(
   }
 
   // --------------------------------------
-  // 3. Replay protection
+  // 🔒 3. REPLAY PROTECTION
   // --------------------------------------
 
   if (executedEvents.has(payload.event_id)) {
@@ -54,7 +47,23 @@ export async function executeWithVerification(
   }
 
   // --------------------------------------
-  // 4. Execute with trusted input
+  // 🔒 4. DECISION ENFORCEMENT (AFTER)
+  // --------------------------------------
+
+  if (decoded.decision !== "ALLOW") {
+    throw new Error(`Execution blocked: decision = ${decoded.decision}`);
+  }
+
+  // --------------------------------------
+  // 🔒 5. TRACE ENFORCEMENT
+  // --------------------------------------
+
+  if (!decoded.trace) {
+    throw new Error("Missing trace in token");
+  }
+
+  // --------------------------------------
+  // ✅ 6. EXECUTE
   // --------------------------------------
 
   const result = await executor(
@@ -63,10 +72,21 @@ export async function executeWithVerification(
   );
 
   // --------------------------------------
-  // 5. Mark event executed
+  // 🔒 7. MARK EVENT EXECUTED
   // --------------------------------------
 
   executedEvents.add(payload.event_id);
 
-  return result;
+  // --------------------------------------
+  // ✅ RETURN
+  // --------------------------------------
+
+  return {
+    status: "EXECUTED",
+    action: payload.action,
+    event_id: payload.event_id,
+    verified: true,
+    executed: true, // test compatibility
+    result,
+  };
 }

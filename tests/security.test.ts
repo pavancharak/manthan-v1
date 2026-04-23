@@ -6,12 +6,26 @@ jest.mock("../core/intentLoader", () => ({
   loadIntent: () => ({
     schema: {
       user_fields: [],
-      system_fields: {},
+      system_fields: {
+        always: "boolean",
+      },
       schema_version: "v1",
     },
     ruleSet: {
       rule_version: "v1",
-      rules: [],
+      rules: [
+        {
+          id: "allow-all",
+          group: 1,
+          order: 1,
+          outcome: "ALLOW",
+          condition: {
+            field: "always",
+            operator: "eq",
+            value: true,
+          },
+        },
+      ],
     },
   }),
 }));
@@ -45,7 +59,11 @@ function getValidExecutionRequest() {
   const decision = executeDecisionInputRequest({
     intent: "test_intent",
     intent_version: "v1",
-    input: {} as any,
+    input: {
+      system_data: {
+        always: true, // ✅ correct shape → rule matches → ALLOW
+      },
+    } as any,
   });
 
   return {
