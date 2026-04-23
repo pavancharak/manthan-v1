@@ -9,6 +9,8 @@ function isValueOfType(
       return typeof value === "number" && Number.isFinite(value);
     case "boolean":
       return typeof value === "boolean";
+    default:
+      return false;
   }
 }
 
@@ -16,12 +18,53 @@ export function validateInput(schema: any, input: any) {
   const missing_fields: string[] = [];
   const errors: string[] = [];
 
-  const fields = schema.system_fields || {};
-  const data = input.system_data || {};
+  // --------------------------------------
+  // ✅ Normalize schema → map
+  // --------------------------------------
 
-  // 🔹 check unexpected fields
+  const fields: Record<string, string> = {};
+  const rawFields = schema.system_fields || {};
+
+  if (Array.isArray(rawFields)) {
+    for (const f of rawFields) {
+      fields[f.name] = f.type;
+    }
+  } else {
+    Object.assign(fields, rawFields);
+  }
+
+  // --------------------------------------
+  // ✅ Deterministic input selection
+  // --------------------------------------
+
+  let data: Record<string, unknown> = {};
+
+  const isObject = input && typeof input === "object";
+
+  if (isObject && "system_data" in input) {
+    const keys = Object.keys(input);
+
+    // ❌ Reject mixed shape
+    if (keys.length > 1) {
+      return {
+        isValid: false,
+        isComplete: false,
+        errors: ["Invalid input shape: mixed nested and flat fields"],
+        missing_fields: [],
+      };
+    }
+
+    data = (input.system_data as Record<string, unknown>) || {};
+  } else if (isObject) {
+    data = input;
+  }
+
+  // --------------------------------------
+  // 🔹 Unexpected fields
+  // --------------------------------------
+
   for (const key of Object.keys(data)) {
-    if (!fields[key]) {
+    if (!(key in fields)) {
       return {
         isValid: false,
         isComplete: false,
@@ -31,7 +74,10 @@ export function validateInput(schema: any, input: any) {
     }
   }
 
-  // 🔹 validate expected fields
+  // --------------------------------------
+  // 🔹 Validate expected fields
+  // --------------------------------------
+
   for (const [field, type] of Object.entries(fields)) {
     const value = data[field];
 
@@ -45,7 +91,10 @@ export function validateInput(schema: any, input: any) {
     }
   }
 
-  // 🔹 invalid takes precedence
+  // --------------------------------------
+  // 🔴 Invalid
+  // --------------------------------------
+
   if (errors.length > 0) {
     return {
       isValid: false,
@@ -54,6 +103,10 @@ export function validateInput(schema: any, input: any) {
       missing_fields: [],
     };
   }
+
+  // --------------------------------------
+  // 🟡 Complete / Incomplete
+  // --------------------------------------
 
   return {
     isValid: true,

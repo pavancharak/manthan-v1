@@ -1,10 +1,7 @@
 // -----------------------------
 // Decision Input
 // -----------------------------
-export interface DecisionInput {
-  user_input?: Record<string, any>;
-  system_data?: Record<string, any>;
-}
+export type DecisionInput = Record<string, any>;
 
 // -----------------------------
 // Schema
@@ -15,6 +12,22 @@ export interface Schema {
 }
 
 // -----------------------------
+// Rule Condition (NEW)
+// -----------------------------
+export type RuleCondition =
+  | {
+      field: string;
+      operator: "eq" | "gt" | "lt";
+      value: any;
+    }
+  | {
+      all: RuleCondition[]; // AND
+    }
+  | {
+      any: RuleCondition[]; // OR
+    };
+
+// -----------------------------
 // Rule
 // -----------------------------
 export interface Rule {
@@ -22,12 +35,15 @@ export interface Rule {
   group: number;
   order: number;
   outcome: "ALLOW" | "BLOCK" | "ESCALATE";
-  condition: {
+
+  // ✅ UPDATED
+  condition: RuleCondition;
+
+  requires?: {
     field: string;
     operator: "eq" | "gt" | "lt";
     value: any;
   };
-  requires?: string[];
 }
 
 // -----------------------------
@@ -101,3 +117,31 @@ export type DecisionResult =
 export type DecisionResultWithDebug = DecisionResult & {
   debug?: DecisionDebugTrace;
 };
+//
+// -----------------------------
+// Simple Trace (STEP 1)
+// -----------------------------
+export interface SimpleTraceItem {
+  field: string;
+  operator: "eq" | "gt" | "lt";
+  expected: any;
+  actual: any;
+  result: boolean;
+}
+
+export type SimpleTrace = SimpleTraceItem[];
+//
+// -----------------------------
+// Structured Trace (NEW)
+// -----------------------------
+export interface ConditionTrace {
+  type: "AND" | "OR" | "LEAF";
+  result: boolean;
+
+  field?: string;
+  operator?: "eq" | "gt" | "lt";
+  expected?: any;
+  actual?: any;
+
+  children?: ConditionTrace[];
+}

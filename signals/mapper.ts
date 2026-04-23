@@ -21,13 +21,11 @@ export function mapSignalsToDecisionInput(
   schema: Schema,
   mappings: SignalFieldMapping[]
 ): DecisionInputMappingResult {
-  const decision_input: DecisionInput = {
-    system_data: {},
-  };
+  // ✅ FINAL: flat decision input
+  const decision_input: DecisionInput = {};
 
-  // Map signals → fields
   for (const mapping of mappings) {
-    // ✅ schema validation (NEW)
+    // 🔒 schema validation (fail fast)
     if (!schema.system_fields[mapping.target_field]) {
       throw new Error(
         `Unknown target field in schema: ${mapping.target_field}`
@@ -41,10 +39,11 @@ export function mapSignalsToDecisionInput(
         s.key === mapping.key
     );
 
+    // Missing signal → skip (completeness handled later)
     if (!signal) continue;
 
-    // ✅ assign into system_data
-    decision_input.system_data![mapping.target_field] = signal.value;
+    // ✅ assign directly (flat)
+    decision_input[mapping.target_field] = signal.value;
   }
 
   return {

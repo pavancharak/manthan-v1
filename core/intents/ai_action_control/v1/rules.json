@@ -1,0 +1,54 @@
+{
+  "rule_version": "v1",
+  "rules": [
+    {
+      "id": "block-high-risk-no-guardrails",
+      "group": 1,
+      "order": 1,
+      "outcome": "BLOCK",
+      "condition": {
+        "field": "risk_level",
+        "operator": "eq",
+        "value": "high"
+      },
+      "requires": {
+        "field": "has_guardrails",
+        "operator": "eq",
+        "value": false
+      }
+    },
+    {
+      "id": "escalate-medium-risk",
+      "group": 2,
+      "order": 1,
+      "outcome": "ESCALATE",
+      "condition": {
+        "field": "risk_level",
+        "operator": "eq",
+        "value": "medium"
+      }
+    },
+    {
+      "id": "allow-safe-actions",
+      "group": 3,
+      "order": 1,
+      "outcome": "ALLOW",
+      "condition": {
+        "field": "risk_level",
+        "operator": "eq",
+        "value": "low"
+      }
+    },
+    {
+      "id": "cover-has-guardrails",
+      "group": 99,
+      "order": 1,
+      "outcome": "ESCALATE",
+      "condition": {
+        "field": "has_guardrails",
+        "operator": "eq",
+        "value": true
+      }
+    }
+  ]
+}

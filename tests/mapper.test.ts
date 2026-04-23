@@ -1,26 +1,26 @@
 import { mapSignalsToDecisionInput } from "../signals/mapper";
 
-describe("mapper", () => {
-  test("maps signals correctly", () => {
+describe("mapper - pr_merge_safety", () => {
+  test("maps signals to decision input correctly", () => {
     const schema = {
       system_fields: {
-        age: "number",
-        country: "string",
+        isApproved: "boolean",
+        hasNewCommitsAfterApproval: "boolean",
       },
     } as any;
 
     const mappings = [
       {
         source: "NON_AI",
-        namespace: "profile",
-        key: "age",
-        target_field: "age",
+        namespace: "pr",
+        key: "approved",
+        target_field: "isApproved",
       },
       {
         source: "NON_AI",
-        namespace: "profile",
-        key: "country",
-        target_field: "country",
+        namespace: "pr",
+        key: "new_commits",
+        target_field: "hasNewCommitsAfterApproval",
       },
     ];
 
@@ -28,15 +28,15 @@ describe("mapper", () => {
       signals: [
         {
           source: "NON_AI",
-          namespace: "profile",
-          key: "age",
-          value: 30,
+          namespace: "pr",
+          key: "approved",
+          value: true,
         },
         {
           source: "NON_AI",
-          namespace: "profile",
-          key: "country",
-          value: "US",
+          namespace: "pr",
+          key: "new_commits",
+          value: false,
         },
       ],
     } as any;
@@ -47,7 +47,7 @@ describe("mapper", () => {
       mappings
     );
 
-    expect(result.decision_input.system_data!.age).toBe(30);
-    expect(result.decision_input.system_data!.country).toBe("US");
+    expect(result.decision_input.isApproved).toBe(true);
+    expect(result.decision_input.hasNewCommitsAfterApproval).toBe(false);
   });
 });

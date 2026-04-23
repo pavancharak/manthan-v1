@@ -1,3 +1,5 @@
+import dotenv from "dotenv";
+dotenv.config();
 import http from "http";
 import { IncomingMessage, ServerResponse } from "http";
 

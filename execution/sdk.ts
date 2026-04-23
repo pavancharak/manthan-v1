@@ -1,15 +1,14 @@
+import { buildExplanation } from "../core/explanation";
 import { logDecisionEvent } from "../core/eventLogger";
 import { execute } from "../core/engine";
 import { loadIntent } from "../core/intentLoader";
-import { DecisionInput, DecisionResult, RuleSet } from "../core/types";
+import { DecisionInput, DecisionResult } from "../core/types";
 
 import { ingestSignalBatch } from "../signals/ingest";
 import {
-  DecisionInputMappingResult,
   mapSignalsToDecisionInput,
   SignalFieldMapping,
 } from "../signals/mapper";
-import { SignalBatch } from "../signals/types";
 
 import { createDecisionToken } from "./token";
 
@@ -41,7 +40,7 @@ export interface SignalExecutionRequest {
 }
 
 // --------------------------------------
-// RESPONSE TYPES (UPDATED)
+// RESPONSE TYPES (FINAL)
 // --------------------------------------
 
 export interface DecisionInputExecutionResult {
@@ -49,8 +48,7 @@ export interface DecisionInputExecutionResult {
   intent: string;
   intent_version: string;
   decision_result: DecisionResult;
-
-  // ✅ NEW
+  explanation: any; // deterministic explanation
   decision_token: string;
 }
 
@@ -59,8 +57,7 @@ export interface SignalExecutionResult {
   intent: string;
   intent_version: string;
   decision_result: DecisionResult;
-
-  // ✅ NEW
+  explanation: any;
   decision_token: string;
 }
 
@@ -90,12 +87,21 @@ export function executeDecisionInputRequest(
     request.intent_version
   );
 
+  const decisionInputData =
+    request.input?.system_data ?? {};
+
   const decision_result = execute(
     request.intent,
-    request.input,
+    decisionInputData,
     schema,
     ruleSet,
     { debug: request.debug }
+  );
+
+  // ✅ Deterministic explanation
+  const explanation = buildExplanation(
+    decision_result,
+    decisionInputData
   );
 
   // ✅ EVENT LOGGING
@@ -110,9 +116,9 @@ export function executeDecisionInputRequest(
 
   const safeDecision = getSafeDecision(decision_result);
 
-  // ✅ TOKEN CREATION (REPLACES SIGNATURE FLOW)
+  // ✅ TOKEN CREATION
   const token = createDecisionToken({
-    decision_input: request.input as any,
+    decision_input: decisionInputData as any,
     signals: {},
     rule_snapshot: ruleSet as any,
     allowed_actions,
@@ -124,6 +130,7 @@ export function executeDecisionInputRequest(
     intent: request.intent,
     intent_version: request.intent_version,
     decision_result,
+    explanation,
     decision_token: token,
   };
 }
@@ -160,6 +167,12 @@ export function executeSignalRequest(
     { debug: request.debug }
   );
 
+  // ✅ Deterministic explanation
+  const explanation = buildExplanation(
+    decision_result,
+    mapping_result.decision_input as any
+  );
+
   // ✅ EVENT LOGGING
   logDecisionEvent({
     intent: request.intent,
@@ -172,7 +185,6 @@ export function executeSignalRequest(
 
   const safeDecision = getSafeDecision(decision_result);
 
-  // ✅ TOKEN CREATION
   const token = createDecisionToken({
     decision_input: mapping_result.decision_input as any,
     signals: signal_batch as any,
@@ -186,6 +198,7 @@ export function executeSignalRequest(
     intent: request.intent,
     intent_version: request.intent_version,
     decision_result,
+    explanation,
     decision_token: token,
   };
 }

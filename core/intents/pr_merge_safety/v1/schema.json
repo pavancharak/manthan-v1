@@ -3,6 +3,5 @@
   "system_fields": {
     "isApproved": "boolean",
     "hasNewCommitsAfterApproval": "boolean"
-  },
-  "user_fields": {}
+  }
 }
