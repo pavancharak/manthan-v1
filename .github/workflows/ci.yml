@@ -22,6 +22,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # 🔐 ADD THIS BLOCK
+      - name: Check v1 immutability
+        run: |
+          git fetch origin main
+          npm run check:v1
+
       - name: Type check
         run: npx tsc
 
