@@ -29,9 +29,7 @@ export function loadIntent(
     "rules.json"
   );
 
-  // Optional debug (remove in prod)
-  console.log("SCHEMA PATH:", schemaPath);
-  console.log("RULES PATH:", rulesPath);
+
 
   if (!fs.existsSync(schemaPath)) {
     throw new Error(`Schema not found for ${intent}@${version}`);
