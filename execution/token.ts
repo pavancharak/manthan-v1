@@ -1,17 +1,28 @@
-import { computeProofHash, signPayload, verifySignature } from "../core/signing";
+import {
+  computeProofHash,
+  signPayload,
+  verifySignature,
+} from "../core/signing";
 
 // --------------------------------------
-// TOKEN TYPES
+// TOKEN TYPES (FINAL)
 // --------------------------------------
 
 export interface DecisionTokenPayload {
   decision_input: Record<string, unknown>;
   signals: Record<string, unknown>;
-  rule_snapshot: Record<string, unknown>;
+
+  // ⚠️ Optional (can remove later)
+  rule_snapshot?: Record<string, unknown>;
+
   allowed_actions: string[];
   decision: string;
 
-  // ✅ NEW (STRUCTURED TRACE)
+  // 🔐 CRITICAL (artifact + decision binding)
+  artifact_hash: string;
+  decision_hash: string;
+
+  // structured trace (optional but deterministic)
   trace?: Record<string, unknown>;
 
   proof_hash: string;
@@ -44,7 +55,6 @@ function removeUndefined(value: any): any {
 
 // --------------------------------------
 // STABLE (CANONICAL) STRINGIFY
-// MUST MATCH HASHING LOGIC
 // --------------------------------------
 
 function stableStringify(value: any): string {
@@ -64,7 +74,7 @@ function stableStringify(value: any): string {
 }
 
 // --------------------------------------
-// CREATE TOKEN
+// CREATE TOKEN (FINAL)
 // --------------------------------------
 
 export function createDecisionToken(
@@ -78,7 +88,10 @@ export function createDecisionToken(
     allowed_actions: payload.allowed_actions ?? [],
     decision: payload.decision,
 
-    // ✅ NEW: trace included in hash + signature
+    // 🔐 CRITICAL (must be included in hash + signature)
+    artifact_hash: payload.artifact_hash,
+    decision_hash: payload.decision_hash,
+
     trace: payload.trace,
   });
 
@@ -91,14 +104,13 @@ export function createDecisionToken(
     proof_hash,
   });
 
-  // 🔐 full token payload
   const fullPayload: DecisionTokenPayload = {
     ...canonicalPayload,
     proof_hash,
     signature,
   };
 
-  // 🔥 canonical encoding
+  // 🔐 canonical encoding
   return Buffer.from(stableStringify(fullPayload)).toString("base64");
 }
 
@@ -112,20 +124,19 @@ export function decodeDecisionToken(token: string): DecisionTokenPayload {
   try {
     const buffer = Buffer.from(token, "base64");
 
-    // 🔐 strict base64 validation
+    // strict encoding validation
     const reEncoded = buffer.toString("base64");
     if (reEncoded !== token) {
       throw new Error("Invalid token encoding");
     }
 
-    const json = buffer.toString("utf-8");
-    decoded = JSON.parse(json);
+    decoded = JSON.parse(buffer.toString("utf-8"));
   } catch {
     throw new Error("Invalid token format");
   }
 
   // --------------------------------------
-  // ✅ CLEAN + CANONICALIZE (MATCH CREATION)
+  // REBUILD CANONICAL PAYLOAD
   // --------------------------------------
 
   const canonicalPayload = removeUndefined({
@@ -135,12 +146,15 @@ export function decodeDecisionToken(token: string): DecisionTokenPayload {
     allowed_actions: decoded.allowed_actions ?? [],
     decision: decoded.decision,
 
-    // ✅ MUST MATCH CREATE
+    // 🔐 MUST MATCH CREATE
+    artifact_hash: decoded.artifact_hash,
+    decision_hash: decoded.decision_hash,
+
     trace: decoded.trace,
   });
 
   // --------------------------------------
-  // 🔐 VERIFY HASH
+  // VERIFY HASH
   // --------------------------------------
 
   const recomputedHash = computeProofHash(canonicalPayload);
@@ -150,7 +164,7 @@ export function decodeDecisionToken(token: string): DecisionTokenPayload {
   }
 
   // --------------------------------------
-  // 🔐 VERIFY SIGNATURE
+  // VERIFY SIGNATURE
   // --------------------------------------
 
   const valid = verifySignature({
@@ -164,7 +178,7 @@ export function decodeDecisionToken(token: string): DecisionTokenPayload {
   }
 
   // --------------------------------------
-  // ✅ RETURN TRUSTED PAYLOAD
+  // RETURN TRUSTED PAYLOAD
   // --------------------------------------
 
   return {

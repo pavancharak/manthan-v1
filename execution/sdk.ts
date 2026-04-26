@@ -12,6 +12,11 @@ import {
 
 import { createDecisionToken } from "./token";
 
+import {
+  computeArtifactHash,
+  computeDecisionHash,
+} from "../core/hasher";
+
 // --------------------------------------
 // HELPERS
 // --------------------------------------
@@ -40,7 +45,7 @@ export interface SignalExecutionRequest {
 }
 
 // --------------------------------------
-// RESPONSE TYPES (FINAL)
+// RESPONSE TYPES
 // --------------------------------------
 
 export interface DecisionInputExecutionResult {
@@ -50,6 +55,8 @@ export interface DecisionInputExecutionResult {
   decision_result: DecisionResult;
   explanation: any;
   decision_token: string;
+  artifact_hash: string;
+  decision_hash: string;
 }
 
 export interface SignalExecutionResult {
@@ -59,6 +66,8 @@ export interface SignalExecutionResult {
   decision_result: DecisionResult;
   explanation: any;
   decision_token: string;
+  artifact_hash: string;
+  decision_hash: string;
 }
 
 // --------------------------------------
@@ -87,6 +96,8 @@ export function executeDecisionInputRequest(
     request.intent_version
   );
 
+  const artifactHash = computeArtifactHash(schema, ruleSet);
+
   const decisionInputData =
     request.input?.system_data ?? {};
 
@@ -98,7 +109,6 @@ export function executeDecisionInputRequest(
     { debug: request.debug }
   );
 
-  // ✅ NEW: extract trace
   let trace = undefined;
   if (
     decision_result.status === "DECIDED" &&
@@ -122,14 +132,21 @@ export function executeDecisionInputRequest(
   const allowed_actions = ["merge_pr"];
   const safeDecision = getSafeDecision(decision_result);
 
+  const decisionHash = computeDecisionHash({
+    intent: request.intent,
+    intent_version: request.intent_version,
+    decision_input: decisionInputData,
+    decision_result,
+    artifact_hash: artifactHash,
+  });
+
   const token = createDecisionToken({
     decision_input: decisionInputData as any,
     signals: {},
-    rule_snapshot: ruleSet as any,
     allowed_actions,
     decision: safeDecision,
-
-    // ✅ FINAL STEP
+    artifact_hash: artifactHash,
+    decision_hash: decisionHash,
     trace,
   });
 
@@ -140,6 +157,8 @@ export function executeDecisionInputRequest(
     decision_result,
     explanation,
     decision_token: token,
+    artifact_hash: artifactHash,
+    decision_hash: decisionHash,
   };
 }
 
@@ -159,6 +178,8 @@ export function executeSignalRequest(
     request.intent_version
   );
 
+  const artifactHash = computeArtifactHash(schema, ruleSet);
+
   const signal_batch = ingestSignalBatch(request.raw_signal_batch);
 
   const mapping_result = mapSignalsToDecisionInput(
@@ -175,7 +196,6 @@ export function executeSignalRequest(
     { debug: request.debug }
   );
 
-  // ✅ NEW: extract trace
   let trace = undefined;
   if (
     decision_result.status === "DECIDED" &&
@@ -199,14 +219,21 @@ export function executeSignalRequest(
   const allowed_actions = ["merge_pr"];
   const safeDecision = getSafeDecision(decision_result);
 
+  const decisionHash = computeDecisionHash({
+    intent: request.intent,
+    intent_version: request.intent_version,
+    decision_input: mapping_result.decision_input,
+    decision_result,
+    artifact_hash: artifactHash,
+  });
+
   const token = createDecisionToken({
     decision_input: mapping_result.decision_input as any,
     signals: signal_batch as any,
-    rule_snapshot: ruleSet as any,
     allowed_actions,
     decision: safeDecision,
-
-    // ✅ FINAL STEP
+    artifact_hash: artifactHash,
+    decision_hash: decisionHash,
     trace,
   });
 
@@ -217,5 +244,7 @@ export function executeSignalRequest(
     decision_result,
     explanation,
     decision_token: token,
+    artifact_hash: artifactHash,
+    decision_hash: decisionHash,
   };
 }

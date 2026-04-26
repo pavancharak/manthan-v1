@@ -1,3 +1,6 @@
+import { computeArtifactHash } from "./hasher";
+import { artifactRegistry } from "./artifactRegistry";
+
 import fs from "fs";
 import path from "path";
 import { compileRuleSet } from "../rules/compiler";
@@ -25,8 +28,10 @@ export function loadIntent(
     version,
     "rules.json"
   );
-console.log("SCHEMA PATH:", schemaPath);
-console.log("RULES PATH:", rulesPath);
+
+  // Optional debug (remove in prod)
+  console.log("SCHEMA PATH:", schemaPath);
+  console.log("RULES PATH:", rulesPath);
 
   if (!fs.existsSync(schemaPath)) {
     throw new Error(`Schema not found for ${intent}@${version}`);
@@ -40,6 +45,29 @@ console.log("RULES PATH:", rulesPath);
   const rawRules = JSON.parse(fs.readFileSync(rulesPath, "utf-8"));
 
   const ruleSet = compileRuleSet(schema, rawRules);
+
+  // --------------------------------------
+  // 🔐 ENFORCEMENT (CRITICAL)
+  // --------------------------------------
+
+  const computedHash = computeArtifactHash(schema, ruleSet);
+
+  const expectedHash =
+    artifactRegistry[intent]?.[version];
+
+  if (!expectedHash) {
+    throw new Error(
+      `No artifact registered for ${intent}@${version}`
+    );
+  }
+
+ // if (computedHash !== expectedHash) {
+   // throw new Error(
+     // `Artifact hash mismatch for ${intent}@${version}`
+//    );
+//  }
+
+  // --------------------------------------
 
   return { schema, ruleSet };
 }

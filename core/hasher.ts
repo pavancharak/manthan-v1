@@ -1,7 +1,7 @@
 import crypto from "crypto";
 
 // --------------------------------------
-// Canonical JSON stringify
+// Canonical JSON stringify (deterministic)
 // --------------------------------------
 
 function canonicalize(obj: any): string {
@@ -21,7 +21,23 @@ function canonicalize(obj: any): string {
 }
 
 // --------------------------------------
-// Hash function
+// Artifact hash (schema + rules)
+// --------------------------------------
+
+export function computeArtifactHash(schema: any, rules: any): string {
+  const canonical = canonicalize({
+    schema,
+    rules,
+  });
+
+  return crypto
+    .createHash("sha256")
+    .update(canonical)
+    .digest("hex");
+}
+
+// --------------------------------------
+// Decision hash (full binding)
 // --------------------------------------
 
 export function computeDecisionHash(data: {
@@ -29,6 +45,7 @@ export function computeDecisionHash(data: {
   intent_version: string;
   decision_input: any;
   decision_result: any;
+  artifact_hash: string;
 }): string {
   const canonical = canonicalize(data);
 
