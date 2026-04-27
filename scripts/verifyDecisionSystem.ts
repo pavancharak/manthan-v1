@@ -1,15 +1,61 @@
 import { execute } from "../core/engine";
 import { loadIntent } from "../core/intentLoader";
+import crypto from "crypto";
+import fs from "fs";
+import path from "path";
 
 // --------------------------------------
-// CONFIG
+// HASHING (canonical, deterministic)
 // --------------------------------------
 
-const intent = "pr_merge_safety";
-const version = "v1";
+function hash(obj: any): string {
+  return crypto
+    .createHash("sha256")
+    .update(JSON.stringify(sortKeys(obj)))
+    .digest("hex");
+}
+
+function sortKeys(obj: any): any {
+  if (Array.isArray(obj)) return obj.map(sortKeys);
+
+  if (obj && typeof obj === "object") {
+    return Object.keys(obj)
+      .sort()
+      .reduce((acc: any, key) => {
+        acc[key] = sortKeys(obj[key]);
+        return acc;
+      }, {});
+  }
+
+  return obj;
+}
 
 // --------------------------------------
-// GENERATOR
+// DISCOVER INTENTS (registry-safe)
+// --------------------------------------
+
+function getAllValidIntents(): string[] {
+  const intentsDir = path.join(__dirname, "../core/intents");
+
+  return fs
+    .readdirSync(intentsDir)
+    .filter((name) => {
+      const fullPath = path.join(intentsDir, name);
+      return fs.statSync(fullPath).isDirectory();
+    })
+    .filter((intent) => {
+      try {
+        loadIntent(intent, "v1"); // validate via registry
+        return true;
+      } catch (err) {
+        console.warn(`⚠️ Skipping unregistered intent: ${intent}`);
+        return false;
+      }
+    });
+}
+
+// --------------------------------------
+// INPUT GENERATOR
 // --------------------------------------
 
 function getValues(type: string) {
@@ -24,9 +70,7 @@ function generateInputs(fields: Record<string, string>) {
 
   function helper(index: number, current: any, results: any[]) {
     if (index === keys.length) {
-      results.push({
-        system_data: { ...current },
-      });
+      results.push({ ...current }); // correct shape
       return;
     }
 
@@ -45,48 +89,88 @@ function generateInputs(fields: Record<string, string>) {
 }
 
 // --------------------------------------
-// VERIFY SYSTEM
+// VERIFY ALL INTENTS
 // --------------------------------------
 
-function verify() {
-  const { schema, ruleSet } = loadIntent(intent, version);
+function verifyAll() {
+  const intents = getAllValidIntents();
 
-  const inputs = generateInputs(schema.system_fields);
+  console.log(`\n🔍 Verifying ${intents.length} intents...\n`);
 
-  const ruleUsage = new Set<string>();
+  intents.forEach((intent) => {
+    const version = "v1";
 
-  console.log(`🔍 Verifying intent: ${intent}@${version}`);
-  console.log(`Total inputs: ${inputs.length}`);
+    const { schema, ruleSet } = loadIntent(intent, version);
+    const inputs = generateInputs(schema.system_fields);
 
-  inputs.forEach((input) => {
-    const result = execute(intent, input, schema, ruleSet);
+    const ruleUsage = new Set<string>();
 
-    // determinism check
-    const result2 = execute(intent, input, schema, ruleSet);
+    console.log(`🔍 Intent: ${intent}@${version}`);
+    console.log(`Total inputs: ${inputs.length}`);
 
-    if (JSON.stringify(result) !== JSON.stringify(result2)) {
-      console.error("❌ NON-DETERMINISM DETECTED", input);
+    inputs.forEach((input) => {
+      // ----------------------------------
+      // STRONG DETERMINISM CHECK
+      // ----------------------------------
+
+      const runs = 20;
+      const hashes = new Set<string>();
+
+      for (let i = 0; i < runs; i++) {
+        const result = execute(intent, input, schema, ruleSet);
+        hashes.add(hash(result));
+      }
+
+      if (hashes.size !== 1) {
+        console.error("❌ NON-DETERMINISM DETECTED");
+        console.error("Intent:", intent);
+        console.error("Input:", JSON.stringify(input, null, 2));
+        console.error("Unique outputs:", hashes.size);
+      }
+
+      // ----------------------------------
+      // REPLAY CHECK
+      // ----------------------------------
+
+      const result1 = execute(intent, input, schema, ruleSet);
+      const result2 = execute(intent, input, schema, ruleSet);
+
+      if (hash(result1) !== hash(result2)) {
+        console.error("❌ REPLAY MISMATCH");
+        console.error("Intent:", intent);
+        console.error("Input:", JSON.stringify(input, null, 2));
+      }
+
+      // ----------------------------------
+      // RULE COVERAGE
+      // ----------------------------------
+
+      if (result1.rule_id) {
+        ruleUsage.add(result1.rule_id);
+      }
+    });
+
+    // --------------------------------------
+    // UNUSED RULES
+    // --------------------------------------
+
+    const allRuleIds = ruleSet.rules.map((r: any) => r.id);
+
+    const unusedRules = allRuleIds.filter((id) => !ruleUsage.has(id));
+
+    if (unusedRules.length > 0) {
+      console.error("⚠️ UNUSED RULES:");
+      unusedRules.forEach((r: string) => console.error(" -", r));
+    } else {
+      console.log("✅ All rules covered");
     }
 
-    if (result.rule_id) {
-      ruleUsage.add(result.rule_id);
-    }
+    console.log(""); // spacing
   });
 
-  const allRuleIds = ruleSet.rules.map((r: any) => r.id);
-
-  const unusedRules = allRuleIds.filter((id) => !ruleUsage.has(id));
-
-  if (unusedRules.length > 0) {
-    console.error("⚠️ UNUSED RULES:");
-    unusedRules.forEach((r: string) => console.error(" -", r));
-  } else {
-    console.log("✅ All rules covered");
-  }
-
-  console.log("✅ Verification complete");
+  console.log("✅ All valid intents verified\n");
 }
 
 // --------------------------------------
 
-verify();
+verifyAll();
