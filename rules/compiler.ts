@@ -172,7 +172,7 @@ function extractFields(condition: RuleCondition, acc: Set<string>) {
 function compileRule(raw: unknown, schema: Schema): Rule {
   if (!isObject(raw)) throw new Error("Invalid rule");
 
-  const { id, group, order, outcome, condition, requires } = raw as any;
+  const { id, group, order, outcome, condition, requires, actions } = raw as any;
 
   if (!isString(id)) throw new Error("Rule missing id");
   if (!isInt(group)) throw new Error(`Rule ${id}: invalid group`);
@@ -189,6 +189,7 @@ function compileRule(raw: unknown, schema: Schema): Rule {
     outcome: outcome as "ALLOW" | "BLOCK" | "ESCALATE",
     condition: normalizeCondition(condition, schema, id),
     requires: normalizeRequires(requires, schema, id),
+actions: Array.isArray(actions) ? actions : [], // ✅ ADD THIS
   };
 }
 

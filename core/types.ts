@@ -12,7 +12,7 @@ export interface Schema {
 }
 
 // -----------------------------
-// Rule Condition (NEW)
+// Rule Condition (RECURSIVE)
 // -----------------------------
 export type RuleCondition =
   | {
@@ -36,7 +36,6 @@ export interface Rule {
   order: number;
   outcome: "ALLOW" | "BLOCK" | "ESCALATE";
 
-  // ✅ UPDATED
   condition: RuleCondition;
 
   requires?: {
@@ -44,6 +43,8 @@ export interface Rule {
     operator: "eq" | "gt" | "lt";
     value: any;
   };
+
+  actions?: string[]; // ✅ NEW (critical)
 }
 
 // -----------------------------
@@ -105,6 +106,9 @@ export type DecisionResult =
       rule_id: string | null;
       schema_version: string;
       rule_version: string;
+
+      actions: string[]; // ✅ NEW (core change)
+
       explanation: {
         reason: "rule_matched" | "no_rule_match";
         details?: Rule;
@@ -117,9 +121,9 @@ export type DecisionResult =
 export type DecisionResultWithDebug = DecisionResult & {
   debug?: DecisionDebugTrace;
 };
-//
+
 // -----------------------------
-// Simple Trace (STEP 1)
+// Simple Trace
 // -----------------------------
 export interface SimpleTraceItem {
   field: string;
@@ -130,9 +134,9 @@ export interface SimpleTraceItem {
 }
 
 export type SimpleTrace = SimpleTraceItem[];
-//
+
 // -----------------------------
-// Structured Trace (NEW)
+// Structured Trace
 // -----------------------------
 export interface ConditionTrace {
   type: "AND" | "OR" | "LEAF";

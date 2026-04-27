@@ -1,10 +1,10 @@
-import dotenv from "dotenv";
-dotenv.config();
+import "dotenv/config";
 import http from "http";
 import { IncomingMessage, ServerResponse } from "http";
 
 import { executeDecisionInputRequest } from "./execution/sdk";
 import { executeWithVerification } from "./execution/gateway";
+import { verifyDecisionToken } from "./execution/token";
 
 // --------------------------------------
 // MOCK EXECUTOR (replace later)
@@ -41,7 +41,7 @@ const server = http.createServer(
         const parsed = body ? JSON.parse(body) : {};
 
         // --------------------------------------
-        // /decision
+        // /decision → generate decision + token
         // --------------------------------------
 
         if (req.method === "POST" && req.url === "/decision") {
@@ -56,13 +56,12 @@ const server = http.createServer(
         }
 
         // --------------------------------------
-        // /execute 🔐 (FINAL — TOKEN BASED FLOW)
+        // /execute → verified execution
         // --------------------------------------
 
         if (req.method === "POST" && req.url === "/execute") {
           const { decision_token, action, event_id } = parsed;
 
-          // ✅ Validate input
           if (
             typeof decision_token !== "string" ||
             typeof action !== "string" ||
@@ -70,13 +69,6 @@ const server = http.createServer(
           ) {
             throw new Error("Missing or invalid required fields");
           }
-
-          // 🔐 Gateway handles:
-          // - token decoding
-          // - signature verification
-          // - hash verification
-          // - replay protection
-          // - action enforcement
 
           const result = await executeWithVerification(
             {
@@ -89,6 +81,33 @@ const server = http.createServer(
 
           res.writeHead(200, { "Content-Type": "application/json" });
           return res.end(JSON.stringify(result));
+        }
+
+        // --------------------------------------
+        // /verify → public verification
+        // --------------------------------------
+
+        if (req.method === "POST" && req.url === "/verify") {
+          const { token } = parsed;
+
+          if (typeof token !== "string") {
+            throw new Error("Missing token");
+          }
+
+          try {
+            verifyDecisionToken(token);
+
+            res.writeHead(200, { "Content-Type": "application/json" });
+            return res.end(JSON.stringify({ valid: true }));
+          } catch (err: any) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            return res.end(
+              JSON.stringify({
+                valid: false,
+                error: err.message,
+              })
+            );
+          }
         }
 
         // --------------------------------------
@@ -108,5 +127,5 @@ const server = http.createServer(
 );
 
 server.listen(3000, () => {
-  console.log("Manthan running on port 3000");
+  console.log("🚀 Manthan running on port 3000");
 });

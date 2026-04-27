@@ -13,11 +13,11 @@ export function execute(
   input: DecisionInput,
   schema: Schema,
   ruleSet: RuleSet,
-  options?: { debug?: boolean } // ✅ NEW
+  options?: { debug?: boolean }
 ): DecisionResultWithDebug {
   void intent;
 
-  const includeDebug = options?.debug === true; // ✅ NEW
+  const includeDebug = options?.debug === true;
 
   const validation = validateInput(schema, input);
 
@@ -26,7 +26,10 @@ export function execute(
     rule_version: ruleSet.rule_version,
   };
 
-  // 🔍 Initialize debug trace
+  // --------------------------------------
+  // DEBUG TRACE INIT
+  // --------------------------------------
+
   const debug: DecisionDebugTrace = {
     validation: {
       isValid: validation.isValid,
@@ -42,7 +45,10 @@ export function execute(
     },
   };
 
-  // 🔴 INVALID
+  // --------------------------------------
+  // INVALID INPUT
+  // --------------------------------------
+
   if (!validation.isValid) {
     return {
       status: "INVALID",
@@ -52,11 +58,14 @@ export function execute(
         reason: "invalid_input",
         details: validation.errors,
       },
-      ...(includeDebug && { debug }), // ✅ CONDITIONAL
+      ...(includeDebug && { debug }),
     };
   }
 
-  // 🟡 INCOMPLETE
+  // --------------------------------------
+  // INCOMPLETE INPUT
+  // --------------------------------------
+
   if (!validation.isComplete) {
     return {
       status: "INCOMPLETE",
@@ -68,33 +77,40 @@ export function execute(
           missing_fields: validation.missing_fields,
         },
       },
-      ...(includeDebug && { debug }), // ✅ CONDITIONAL
+      ...(includeDebug && { debug }),
     };
   }
 
-  // 🟢 RULE EVALUATION
+  // --------------------------------------
+  // RULE EVALUATION
+  // --------------------------------------
 
-  // Track all rules in evaluation order
   debug.evaluation.checked_rules = ruleSet.rules.map((r) => r.id);
 
-  // Evaluate once (deterministic)
   const matchedRule = evaluateRules(ruleSet.rules, input);
 
-  // ❌ No match → ESCALATE
+  // --------------------------------------
+  // NO MATCH → SAFE ESCALATION
+  // --------------------------------------
+
   if (!matchedRule) {
     return {
       status: "DECIDED",
       decision: "ESCALATE",
       rule_id: null,
       ...versions,
+      actions: ["require_human_review"], // ✅ SAFE DEFAULT
       explanation: {
         reason: "no_rule_match",
       },
-      ...(includeDebug && { debug }), // ✅ CONDITIONAL
+      ...(includeDebug && { debug }),
     };
   }
 
-  // ✅ Match found
+  // --------------------------------------
+  // MATCH FOUND
+  // --------------------------------------
+
   debug.evaluation.matched_rule_id = matchedRule.id;
 
   return {
@@ -102,10 +118,11 @@ export function execute(
     decision: matchedRule.outcome,
     rule_id: matchedRule.id,
     ...versions,
+    actions: matchedRule.actions ?? [], // 🔥 CRITICAL FIX
     explanation: {
       reason: "rule_matched",
       details: matchedRule,
     },
-    ...(includeDebug && { debug }), // ✅ CONDITIONAL
+    ...(includeDebug && { debug }),
   };
 }

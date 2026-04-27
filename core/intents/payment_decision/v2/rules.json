@@ -1,0 +1,41 @@
+{
+  "rule_version": "v2",
+  "rules": [
+    {
+      "id": "block-fraud",
+      "group": 1,
+      "order": 1,
+      "outcome": "BLOCK",
+      "condition": {
+        "field": "is_fraud",
+        "operator": "eq",
+        "value": true
+      },
+      "actions": []
+    },
+    {
+      "id": "allow-small-payment",
+      "group": 2,
+      "order": 1,
+      "outcome": "ALLOW",
+      "condition": {
+        "field": "amount",
+        "operator": "lt",
+        "value": 10000
+      },
+      "actions": ["process_payment"]
+    },
+    {
+      "id": "escalate-large-payment",
+      "group": 3,
+      "order": 1,
+      "outcome": "ESCALATE",
+      "condition": {
+        "field": "amount",
+        "operator": "gt",
+        "value": 10000
+      },
+      "actions": ["flag_for_review"]
+    }
+  ]
+}

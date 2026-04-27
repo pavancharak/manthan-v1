@@ -11,7 +11,7 @@ export interface ExecutionRequest {
 }
 
 // --------------------------------------
-// REPLAY PROTECTION
+// REPLAY STORE
 // --------------------------------------
 
 const executedEvents = new Set<string>();
@@ -25,21 +25,7 @@ export async function executeWithVerification(
   executor: (action: string, params: any) => Promise<any>
 ) {
   // --------------------------------------
-  // 🔐 1. Decode + verify token
-  // --------------------------------------
-
-  const decoded = decodeDecisionToken(payload.decision_token);
-
-  // --------------------------------------
-  // 🔒 2. ACTION ALLOWLIST (FIRST)
-  // --------------------------------------
-
-  if (!decoded.allowed_actions.includes(payload.action)) {
-    throw new Error("Action not allowed");
-  }
-
-  // --------------------------------------
-  // 🔒 3. REPLAY PROTECTION
+  // 🔒 1. REPLAY PROTECTION (FIRST)
   // --------------------------------------
 
   if (executedEvents.has(payload.event_id)) {
@@ -47,19 +33,33 @@ export async function executeWithVerification(
   }
 
   // --------------------------------------
-  // 🔒 4. DECISION ENFORCEMENT (AFTER)
+  // 🔐 2. Decode + verify token
   // --------------------------------------
 
-  if (decoded.decision !== "ALLOW") {
-    throw new Error(`Execution blocked: decision = ${decoded.decision}`);
-  }
+  const decoded = decodeDecisionToken(payload.decision_token);
 
   // --------------------------------------
-  // 🔒 5. TRACE ENFORCEMENT
+  // 🔒 3. TRACE ENFORCEMENT
   // --------------------------------------
 
   if (!decoded.trace) {
     throw new Error("Missing trace in token");
+  }
+
+  // --------------------------------------
+  // 🔒 4. ACTION ALLOWLIST
+  // --------------------------------------
+
+  if (!decoded.allowed_actions.includes(payload.action)) {
+    throw new Error("Action not allowed");
+  }
+
+  // --------------------------------------
+  // 🔒 5. DECISION ENFORCEMENT
+  // --------------------------------------
+
+  if (decoded.decision !== "ALLOW") {
+    throw new Error(`Execution blocked: decision = ${decoded.decision}`);
   }
 
   // --------------------------------------
@@ -72,7 +72,7 @@ export async function executeWithVerification(
   );
 
   // --------------------------------------
-  // 🔒 7. MARK EVENT EXECUTED
+  // 🔒 7. MARK EVENT USED (AFTER SUCCESS)
   // --------------------------------------
 
   executedEvents.add(payload.event_id);
@@ -86,7 +86,7 @@ export async function executeWithVerification(
     action: payload.action,
     event_id: payload.event_id,
     verified: true,
-    executed: true, // test compatibility
+    executed: true,
     result,
   };
 }

@@ -1,3 +1,4 @@
+import { signDecisionHash } from "../core/signing";
 import { buildExplanation } from "../core/explanation";
 import { logDecisionEvent } from "../core/eventLogger";
 import { execute } from "../core/engine";
@@ -15,6 +16,7 @@ import { createDecisionToken } from "./token";
 import {
   computeArtifactHash,
   computeDecisionHash,
+  computeSignalsHash,
 } from "../core/hasher";
 
 // --------------------------------------
@@ -25,68 +27,32 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-// --------------------------------------
-// REQUEST TYPES
-// --------------------------------------
-
-export interface DecisionInputExecutionRequest {
-  intent: string;
-  intent_version: string;
-  input: DecisionInput;
-  debug?: boolean;
-}
-
-export interface SignalExecutionRequest {
-  intent: string;
-  intent_version: string;
-  raw_signal_batch: unknown;
-  mappings?: SignalFieldMapping[];
-  debug?: boolean;
-}
-
-// --------------------------------------
-// RESPONSE TYPES
-// --------------------------------------
-
-export interface DecisionInputExecutionResult {
-  mode: "decision_input";
-  intent: string;
-  intent_version: string;
-  decision_result: DecisionResult;
-  explanation: any;
-  decision_token: string;
-  artifact_hash: string;
-  decision_hash: string;
-}
-
-export interface SignalExecutionResult {
-  mode: "signal_batch";
-  intent: string;
-  intent_version: string;
-  decision_result: DecisionResult;
-  explanation: any;
-  decision_token: string;
-  artifact_hash: string;
-  decision_hash: string;
-}
-
-// --------------------------------------
-// SAFE DECISION EXTRACTION
-// --------------------------------------
-
 function getSafeDecision(result: DecisionResult): string {
   return result.status === "DECIDED"
     ? result.decision
     : "ESCALATE";
 }
 
+function extractTrace(result: DecisionResult): any {
+  if (
+    result.status === "DECIDED" &&
+    result.explanation?.details
+  ) {
+    return (result.explanation.details as any).__trace;
+  }
+  return undefined;
+}
+
 // --------------------------------------
 // DECISION INPUT EXECUTION
 // --------------------------------------
 
-export function executeDecisionInputRequest(
-  request: DecisionInputExecutionRequest
-): DecisionInputExecutionResult {
+export function executeDecisionInputRequest(request: {
+  intent: string;
+  intent_version: string;
+  input: DecisionInput;
+  debug?: boolean;
+}) {
   if (!isNonEmptyString(request.intent_version)) {
     throw new Error("Invalid intent_version");
   }
@@ -109,18 +75,12 @@ export function executeDecisionInputRequest(
     { debug: request.debug }
   );
 
-  let trace = undefined;
-  if (
-    decision_result.status === "DECIDED" &&
-    decision_result.explanation.details
-  ) {
-    trace = (decision_result.explanation.details as any).__trace;
-  }
-
   const explanation = buildExplanation(
     decision_result,
     decisionInputData
   );
+
+  const trace = extractTrace(decision_result);
 
   logDecisionEvent({
     intent: request.intent,
@@ -129,16 +89,26 @@ export function executeDecisionInputRequest(
     decision_result,
   });
 
-  const allowed_actions = ["merge_pr"];
   const safeDecision = getSafeDecision(decision_result);
 
-  const decisionHash = computeDecisionHash({
+  const signals_hash = computeSignalsHash(decisionInputData);
+
+  const decision_hash = computeDecisionHash({
     intent: request.intent,
     intent_version: request.intent_version,
-    decision_input: decisionInputData,
-    decision_result,
     artifact_hash: artifactHash,
+    signals_hash,
+    decision: safeDecision,
+    rule_id:
+      decision_result.status === "DECIDED"
+        ? decision_result.rule_id!
+        : "NO_MATCH",
   });
+
+  const signature = signDecisionHash(decision_hash);
+
+  const allowed_actions =
+    safeDecision === "ALLOW" ? ["merge_pr"] : [];
 
   const token = createDecisionToken({
     decision_input: decisionInputData as any,
@@ -146,7 +116,8 @@ export function executeDecisionInputRequest(
     allowed_actions,
     decision: safeDecision,
     artifact_hash: artifactHash,
-    decision_hash: decisionHash,
+    decision_hash,
+    signature,
     trace,
   });
 
@@ -158,7 +129,8 @@ export function executeDecisionInputRequest(
     explanation,
     decision_token: token,
     artifact_hash: artifactHash,
-    decision_hash: decisionHash,
+    decision_hash,
+    signature,
   };
 }
 
@@ -166,9 +138,13 @@ export function executeDecisionInputRequest(
 // SIGNAL EXECUTION
 // --------------------------------------
 
-export function executeSignalRequest(
-  request: SignalExecutionRequest
-): SignalExecutionResult {
+export function executeSignalRequest(request: {
+  intent: string;
+  intent_version: string;
+  raw_signal_batch: unknown;
+  mappings?: SignalFieldMapping[];
+  debug?: boolean;
+}) {
   if (!isNonEmptyString(request.intent_version)) {
     throw new Error("Invalid intent_version");
   }
@@ -180,7 +156,9 @@ export function executeSignalRequest(
 
   const artifactHash = computeArtifactHash(schema, ruleSet);
 
-  const signal_batch = ingestSignalBatch(request.raw_signal_batch);
+  const signal_batch = ingestSignalBatch(
+    request.raw_signal_batch
+  );
 
   const mapping_result = mapSignalsToDecisionInput(
     signal_batch,
@@ -196,18 +174,12 @@ export function executeSignalRequest(
     { debug: request.debug }
   );
 
-  let trace = undefined;
-  if (
-    decision_result.status === "DECIDED" &&
-    decision_result.explanation.details
-  ) {
-    trace = (decision_result.explanation.details as any).__trace;
-  }
-
   const explanation = buildExplanation(
     decision_result,
     mapping_result.decision_input as any
   );
+
+  const trace = extractTrace(decision_result);
 
   logDecisionEvent({
     intent: request.intent,
@@ -216,16 +188,28 @@ export function executeSignalRequest(
     decision_result,
   });
 
-  const allowed_actions = ["merge_pr"];
   const safeDecision = getSafeDecision(decision_result);
 
-  const decisionHash = computeDecisionHash({
+  const signals_hash = computeSignalsHash(
+    mapping_result.decision_input
+  );
+
+  const decision_hash = computeDecisionHash({
     intent: request.intent,
     intent_version: request.intent_version,
-    decision_input: mapping_result.decision_input,
-    decision_result,
     artifact_hash: artifactHash,
+    signals_hash,
+    decision: safeDecision,
+    rule_id:
+      decision_result.status === "DECIDED"
+        ? decision_result.rule_id!
+        : "NO_MATCH",
   });
+
+  const signature = signDecisionHash(decision_hash);
+
+  const allowed_actions =
+    safeDecision === "ALLOW" ? ["merge_pr"] : [];
 
   const token = createDecisionToken({
     decision_input: mapping_result.decision_input as any,
@@ -233,7 +217,8 @@ export function executeSignalRequest(
     allowed_actions,
     decision: safeDecision,
     artifact_hash: artifactHash,
-    decision_hash: decisionHash,
+    decision_hash,
+    signature,
     trace,
   });
 
@@ -245,6 +230,7 @@ export function executeSignalRequest(
     explanation,
     decision_token: token,
     artifact_hash: artifactHash,
-    decision_hash: decisionHash,
+    decision_hash,
+    signature,
   };
 }
