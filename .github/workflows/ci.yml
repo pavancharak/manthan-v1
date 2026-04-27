@@ -34,5 +34,10 @@ jobs:
       - name: Type check
         run: npx tsc
 
+      # 🔥 ADD THIS
+      - name: Debug env (safe)
+        run: |
+          echo "$MANTHAN_PRIVATE_KEY" | head -n 2
+
       - name: Run tests
         run: npm test
