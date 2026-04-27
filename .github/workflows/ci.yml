@@ -10,6 +10,10 @@ jobs:
   validate:
     runs-on: ubuntu-latest
 
+    env:
+      MANTHAN_PRIVATE_KEY: ${{ secrets.MANTHAN_PRIVATE_KEY }}
+      MANTHAN_PUBLIC_KEY: ${{ secrets.MANTHAN_PUBLIC_KEY }}
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -22,7 +26,6 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      # 🔐 ADD THIS BLOCK
       - name: Check v1 immutability
         run: |
           git fetch origin main

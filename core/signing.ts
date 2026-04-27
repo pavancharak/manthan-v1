@@ -2,43 +2,45 @@ import "dotenv/config";
 import crypto from "crypto";
 
 // --------------------------------------
-// CONFIG
+// LOAD KEYS (PEM FORMAT)
 // --------------------------------------
 
-//console.log("PRIVATE KEY LOADED:", !!process.env.MANTHAN_PRIVATE_KEY);
-//console.log("PUBLIC KEY LOADED:", !!process.env.MANTHAN_PUBLIC_KEY);
+const PRIVATE_KEY_RAW = process.env.MANTHAN_PRIVATE_KEY!;
+const PUBLIC_KEY_RAW = process.env.MANTHAN_PUBLIC_KEY!;
 
-const SECRET = process.env.MANTHAN_SECRET;
+if (!PRIVATE_KEY_RAW) throw new Error("MANTHAN_PRIVATE_KEY not set");
+if (!PUBLIC_KEY_RAW) throw new Error("MANTHAN_PUBLIC_KEY not set");
 
-if (!SECRET) {
-  throw new Error("MANTHAN_SECRET is not set");
-}
-
-const SECRET_KEY: string = SECRET;
+// 🔥 FIX: normalize newlines
+const PRIVATE_KEY = PRIVATE_KEY_RAW.replace(/\\n/g, "\n");
+const PUBLIC_KEY = PUBLIC_KEY_RAW.replace(/\\n/g, "\n");
 
 // --------------------------------------
-// SIGN DECISION HASH
+// SIGN
 // --------------------------------------
 
 export function signDecisionHash(decision_hash: string): string {
-  return crypto
-    .createHmac("sha256", SECRET_KEY)
-    .update(decision_hash)
-    .digest("hex");
+  const signature = crypto.sign(
+    null,
+    Buffer.from(decision_hash),
+    PRIVATE_KEY
+  );
+
+  return signature.toString("base64");
 }
 
 // --------------------------------------
-// VERIFY DECISION HASH
+// VERIFY
 // --------------------------------------
 
 export function verifyDecisionHash(
   decision_hash: string,
   signature: string
 ): boolean {
-  const expected = crypto
-    .createHmac("sha256", SECRET_KEY)
-    .update(decision_hash)
-    .digest("hex");
-
-  return expected === signature;
+  return crypto.verify(
+    null,
+    Buffer.from(decision_hash),
+    PUBLIC_KEY,
+    Buffer.from(signature, "base64")
+  );
 }
