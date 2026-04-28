@@ -4,19 +4,20 @@
     "module": "commonjs",
     "rootDir": ".",
     "outDir": "dist",
+
     "esModuleInterop": true,
     "resolveJsonModule": true,
+
     "strict": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+
+    "forceConsistentCasingInFileNames": true
   },
+
   "include": [
-    "index.ts",
-    "core/**/*.ts",
-    "execution/**/*.ts",
-    "rules/**/*.ts",
-    "signals/**/*.ts",
-    "schema/**/*.json"
+    "**/*.ts"
   ],
+
   "exclude": [
     "node_modules",
     "dist",

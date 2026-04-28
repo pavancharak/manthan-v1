@@ -21,7 +21,7 @@
       "condition": {
         "field": "amount",
         "operator": "lt",
-        "value": 10000
+        "value": 10001
       },
       "actions": ["process_payment"]
     },

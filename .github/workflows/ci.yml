@@ -15,29 +15,37 @@ jobs:
       MANTHAN_PUBLIC_KEY: ${{ secrets.MANTHAN_PUBLIC_KEY }}
 
     steps:
+      # --------------------------------------
+      # Checkout
+      # --------------------------------------
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      # --------------------------------------
+      # Node setup
+      # --------------------------------------
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: "npm"
 
+      # --------------------------------------
+      # Install (deterministic)
+      # --------------------------------------
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
+      # --------------------------------------
+      # Protect v1
+      # --------------------------------------
       - name: Check v1 immutability
         run: |
           git fetch origin main
           npm run check:v1
 
-      - name: Type check
-        run: npx tsc
-
-      # 🔥 ADD THIS
-      - name: Debug env (safe)
-        run: |
-          echo "$MANTHAN_PRIVATE_KEY" | head -n 2
-
-      - name: Run tests
-        run: npm test
+      # --------------------------------------
+      # 🔒 FULL SYSTEM CHECK (single source)
+      # --------------------------------------
+      - name: Run Manthan system check
+        run: npm run check

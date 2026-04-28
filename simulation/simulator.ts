@@ -1,25 +1,23 @@
+import { executeDecisionInputRequest } from "../execution/sdk";
 import { logDecisionEvent } from "../events/logger";
 import { analyzeCoverage } from "../coverage/coverage";
-import { compileRuleSet } from "../rules/compiler";
 import { generateSuggestions } from "../ai/suggestions";
-import { executeDecisionInputRequest } from "../execution/sdk";
 import { analyzeCost } from "../cost/analyzer";
+
 import fs from "fs";
 import path from "path";
 
-// Load schema + rules
-const schema = require("../schema/schema.json");
-const raw_rule_set = require("../rules/rule_set.json");
+// --------------------------------------
+// CONFIG
+// --------------------------------------
 
-// Compile rules (IMPORTANT: includes warnings)
-const rule_set = compileRuleSet(schema, raw_rule_set);
+const INTENT = "pr_merge_safety";
+const VERSION = "v2";
 
-const context = {
-  schema,
-  rule_set,
-};
+// --------------------------------------
+// LOAD TEST CASES
+// --------------------------------------
 
-// Load test cases
 const testFilePath = path.join(__dirname, "test-cases.json");
 const raw = fs.readFileSync(testFilePath, "utf-8");
 
@@ -30,42 +28,77 @@ type SimulationCase = {
 
 const testCases: SimulationCase[] = JSON.parse(raw);
 
-// 📊 Coverage trackers
+// --------------------------------------
+// TRACKERS
+// --------------------------------------
+
 const usedRules = new Set<string>();
 const escalateCases: { reason: string; details?: any }[] = [];
 
-// 🚀 Run Simulation
+// --------------------------------------
+// RUN SIMULATION
+// --------------------------------------
+
 function runSimulation() {
   console.log("🧠 Running Manthan Simulation...\n");
 
   testCases.forEach((test) => {
-    const result = executeDecisionInputRequest(context, {
-      intent: "simulation_test",
+    const result = executeDecisionInputRequest({
+      intent: INTENT,
+      intent_version: VERSION,
       input: test.input,
     });
 
     const decision = result.decision_result;
-   logDecisionEvent({
-  timestamp: new Date().toISOString(),
-  intent: "simulation_test",
-  decision_input: test.input,
-  decision_result: decision,
-  schema_version: rule_set.rule_version,
-  rule_version: rule_set.rule_version,
-});
 
-    // Track used rules
+    // --------------------------------------
+    // LOG
+    // --------------------------------------
+
+    logDecisionEvent({
+      timestamp: new Date().toISOString(),
+      intent: INTENT,
+      decision_input: test.input,
+      decision_result: decision,
+      schema_version: result.intent_version,
+      rule_version: result.intent_version,
+    });
+
+    // --------------------------------------
+    // HANDLE NON-DECIDED STATES
+    // --------------------------------------
+
+    if (decision.status !== "DECIDED") {
+      console.log("====================================");
+      console.log(`Test: ${test.name}`);
+      console.log("Status:", decision.status);
+      console.log("Reason:", decision.explanation.reason);
+      console.log("====================================\n");
+      return;
+    }
+
+    // --------------------------------------
+    // TRACK RULE USAGE
+    // --------------------------------------
+
     if (decision.rule_id) {
       usedRules.add(decision.rule_id);
     }
 
-    // Track ESCALATE cases
+    // --------------------------------------
+    // TRACK ESCALATE
+    // --------------------------------------
+
     if (decision.decision === "ESCALATE") {
       escalateCases.push({
         reason: decision.explanation.reason,
         details: decision.explanation.details,
       });
     }
+
+    // --------------------------------------
+    // OUTPUT
+    // --------------------------------------
 
     console.log("====================================");
     console.log(`Test: ${test.name}`);
@@ -74,27 +107,26 @@ function runSimulation() {
     console.log("Reason:", decision.explanation.reason);
     console.log("====================================\n");
   });
-const coverage = analyzeCoverage({
-  ruleIds: rule_set.rules.map((r: any) => r.id),
-  usedRules,
-  escalateCases,
-});
-  // 📊 COVERAGE REPORT
+
+  // --------------------------------------
+  // COVERAGE
+  // --------------------------------------
+
+  const coverage = analyzeCoverage({
+    ruleIds: Array.from(usedRules),
+    usedRules,
+    escalateCases,
+  });
+
   console.log("\n📊 COVERAGE REPORT\n");
   console.log("Coverage:", `${coverage.coveragePercent}%`);
 
-  const allRules: string[] = rule_set.rules.map((r: any) => r.id);
-  const unusedRules: string[] = allRules.filter((id) => !usedRules.has(id));
-
   console.log("✅ Used Rules:");
-  usedRules.forEach((r: string) => console.log(" -", r));
+  usedRules.forEach((r) => console.log(" -", r));
 
-  console.log("\n❌ Unused Rules:");
-  if (unusedRules.length === 0) {
-    console.log(" - None");
-  } else {
-    unusedRules.forEach((r: string) => console.log(" -", r));
-  }
+  // --------------------------------------
+  // ESCALATIONS
+  // --------------------------------------
 
   console.log("\n⚠️ ESCALATE Cases:");
   if (escalateCases.length === 0) {
@@ -107,9 +139,12 @@ const coverage = analyzeCoverage({
     });
   }
 
-  // 💡 AI SUGGESTIONS
+  // --------------------------------------
+  // AI SUGGESTIONS
+  // --------------------------------------
+
   const suggestions = generateSuggestions({
-    warnings: rule_set.warnings,
+    warnings: [],
     escalateCases,
   });
 
@@ -123,9 +158,12 @@ const coverage = analyzeCoverage({
     });
   }
 
-  // 💰 COST ANALYSIS (FINAL ADDITION)
+  // --------------------------------------
+  // COST
+  // --------------------------------------
+
   const cost = analyzeCost({
-    ruleCount: rule_set.rules.length,
+    ruleCount: usedRules.size,
     evaluatedRules: usedRules.size,
     suggestions: suggestions.length,
     simulations: testCases.length,
@@ -140,5 +178,8 @@ const coverage = analyzeCoverage({
   console.log("Estimated Cost Score:", cost.estimatedCostScore);
 }
 
-// Execute
+// --------------------------------------
+// RUN
+// --------------------------------------
+
 runSimulation();

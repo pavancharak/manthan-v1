@@ -6,6 +6,8 @@ import path from "path";
 import { compileRuleSet } from "../rules/compiler";
 import { Schema, RuleSet } from "./types";
 
+
+
 export function loadIntent(
   intent: string,
   version: string
@@ -29,23 +31,38 @@ export function loadIntent(
     "rules.json"
   );
 
-
+  // --------------------------------------
+  // FILE EXISTENCE (FAIL-CLOSED)
+  // --------------------------------------
 
   if (!fs.existsSync(schemaPath)) {
-    throw new Error(`Schema not found for ${intent}@${version}`);
+    throw new Error(
+      `Schema not found for ${intent}@${version} at ${schemaPath}`
+    );
   }
 
   if (!fs.existsSync(rulesPath)) {
-    throw new Error(`Rules not found for ${intent}@${version}`);
+    throw new Error(
+      `Rules not found for ${intent}@${version} at ${rulesPath}`
+    );
   }
 
-  const schema = JSON.parse(fs.readFileSync(schemaPath, "utf-8"));
-  const rawRules = JSON.parse(fs.readFileSync(rulesPath, "utf-8"));
+  // --------------------------------------
+  // LOAD + COMPILE
+  // --------------------------------------
 
-  const ruleSet = compileRuleSet(schema, rawRules);
+  const schema: Schema = JSON.parse(
+    fs.readFileSync(schemaPath, "utf-8")
+  );
+
+  const rawRules = JSON.parse(
+    fs.readFileSync(rulesPath, "utf-8")
+  );
+
+  const ruleSet: RuleSet = compileRuleSet(schema, rawRules);
 
   // --------------------------------------
-  // 🔐 ENFORCEMENT (CRITICAL)
+  // 🔐 ENFORCEMENT (NON-NEGOTIABLE)
   // --------------------------------------
 
   const computedHash = computeArtifactHash(schema, ruleSet);
@@ -59,11 +76,18 @@ export function loadIntent(
     );
   }
 
- // if (computedHash !== expectedHash) {
-   // throw new Error(
-     // `Artifact hash mismatch for ${intent}@${version}`
-//    );
-//  }
+  if (computedHash !== expectedHash) {
+    throw new Error(
+      `Artifact hash mismatch for ${intent}@${version}
+Expected: ${expectedHash}
+Got: ${computedHash}`
+    );
+  }
+
+// console.log(
+  //`HASH ${intent}@${version}:`,
+  //computedHash
+//);
 
   // --------------------------------------
 

@@ -3,7 +3,12 @@ import fs from "fs";
 import path from "path";
 import { DecisionInput, DecisionResult } from "./types";
 
+// --------------------------------------
+// TYPES
+// --------------------------------------
+
 export interface DecisionEvent {
+  type: "DECISION";
   event_id: string;
   intent: string;
   intent_version: string;
@@ -13,7 +18,21 @@ export interface DecisionEvent {
   hash: string;
 }
 
-const LOG_FILE = path.join(__dirname, "..", "logs", "decision.log");
+export interface ExecutionEvent {
+  type: "EXECUTION";
+  event_id: string;
+  decision_hash: string;
+  action: string;
+  status: string;
+  timestamp: string;
+  hash: string;
+}
+
+// --------------------------------------
+// CONFIG
+// --------------------------------------
+
+const LOG_FILE = path.join(__dirname, "..", "logs", "audit.log");
 
 // --------------------------------------
 // Ensure logs folder exists
@@ -47,12 +66,11 @@ function canonicalize(obj: any): string {
 }
 
 // --------------------------------------
-// Deterministic hash (CRITICAL)
+// Deterministic hash
 // --------------------------------------
 
 function computeHash(payload: object): string {
   const canonical = canonicalize(payload);
-
   return crypto.createHash("sha256").update(canonical).digest("hex");
 }
 
@@ -65,7 +83,7 @@ function generateEventId(): string {
 }
 
 // --------------------------------------
-// Append log safely
+// Append log
 // --------------------------------------
 
 function appendLog(line: string) {
@@ -74,7 +92,7 @@ function appendLog(line: string) {
 }
 
 // --------------------------------------
-// MAIN LOGGER
+// DECISION LOGGER
 // --------------------------------------
 
 export function logDecisionEvent(params: {
@@ -86,7 +104,6 @@ export function logDecisionEvent(params: {
   try {
     const timestamp = new Date().toISOString();
 
-    // ✅ ONLY deterministic fields
     const hashPayload = {
       intent: params.intent,
       intent_version: params.intent_version,
@@ -97,14 +114,50 @@ export function logDecisionEvent(params: {
     const hash = computeHash(hashPayload);
 
     const event: DecisionEvent = {
-      event_id: generateEventId(), // ❌ NOT part of hash
+      type: "DECISION",
+      event_id: generateEventId(),
       ...hashPayload,
-      timestamp,                  // ❌ NOT part of hash
+      timestamp,
       hash,
     };
 
     appendLog(JSON.stringify(event));
   } catch {
-    // ❗ NEVER break execution
+    // never break execution
+  }
+}
+
+// --------------------------------------
+// EXECUTION LOGGER
+// --------------------------------------
+
+export function logExecutionEvent(params: {
+  event_id: string;
+  decision_hash: string;
+  action: string;
+  status: string;
+}) {
+  try {
+    const timestamp = new Date().toISOString();
+
+    const hashPayload = {
+      decision_hash: params.decision_hash,
+      action: params.action,
+      status: params.status,
+    };
+
+    const hash = computeHash(hashPayload);
+
+    const event: ExecutionEvent = {
+      type: "EXECUTION",
+      event_id: params.event_id,
+      ...hashPayload,
+      timestamp,
+      hash,
+    };
+
+    appendLog(JSON.stringify(event));
+  } catch {
+    // never break execution
   }
 }

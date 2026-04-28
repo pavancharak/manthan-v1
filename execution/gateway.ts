@@ -1,4 +1,14 @@
-import { decodeDecisionToken } from "./token";
+import {
+  decodeDecisionToken,
+  verifyDecisionToken,
+} from "./token";
+
+import {
+  checkIdempotent,
+  storeResult,
+} from "./replayStore";
+
+import { logExecutionEvent } from "../core/eventLogger";
 
 // --------------------------------------
 // TYPES
@@ -11,12 +21,6 @@ export interface ExecutionRequest {
 }
 
 // --------------------------------------
-// REPLAY STORE
-// --------------------------------------
-
-const executedEvents = new Set<string>();
-
-// --------------------------------------
 // EXECUTION WITH VERIFICATION
 // --------------------------------------
 
@@ -25,21 +29,52 @@ export async function executeWithVerification(
   executor: (action: string, params: any) => Promise<any>
 ) {
   // --------------------------------------
-  // 🔒 1. REPLAY PROTECTION (FIRST)
+  // 🔒 1. STRICT VALIDATION
   // --------------------------------------
 
-  if (executedEvents.has(payload.event_id)) {
-    throw new Error("Replay detected");
+  if (!payload || typeof payload !== "object") {
+    throw new Error("Invalid payload");
+  }
+
+  if (typeof payload.decision_token !== "string") {
+    throw new Error("Missing or invalid decision_token");
+  }
+
+  if (typeof payload.action !== "string") {
+    throw new Error("Missing or invalid action");
+  }
+
+  if (typeof payload.event_id !== "string") {
+    throw new Error("Missing or invalid event_id");
   }
 
   // --------------------------------------
-  // 🔐 2. Decode + verify token
+  // 🔒 2. IDEMPOTENCY CHECK (FIRST)
+  // --------------------------------------
+
+  const idempotency = checkIdempotent(
+    payload.event_id,
+    payload
+  );
+
+  if (idempotency.status === "REPLAY") {
+    return idempotency.result;
+  }
+
+  // --------------------------------------
+  // 🔐 3. VERIFY TOKEN (CRITICAL)
+  // --------------------------------------
+
+  verifyDecisionToken(payload.decision_token);
+
+  // --------------------------------------
+  // 🔓 4. DECODE TOKEN
   // --------------------------------------
 
   const decoded = decodeDecisionToken(payload.decision_token);
 
   // --------------------------------------
-  // 🔒 3. TRACE ENFORCEMENT
+  // 🔒 5. TRACE ENFORCEMENT
   // --------------------------------------
 
   if (!decoded.trace) {
@@ -47,23 +82,27 @@ export async function executeWithVerification(
   }
 
   // --------------------------------------
-  // 🔒 4. ACTION ALLOWLIST
+  // 🔒 6. ACTION ALLOWLIST
   // --------------------------------------
 
   if (!decoded.allowed_actions.includes(payload.action)) {
-    throw new Error("Action not allowed");
+    throw new Error(
+      `Action ${payload.action} not allowed`
+    );
   }
 
   // --------------------------------------
-  // 🔒 5. DECISION ENFORCEMENT
+  // 🔒 7. DECISION ENFORCEMENT
   // --------------------------------------
 
   if (decoded.decision !== "ALLOW") {
-    throw new Error(`Execution blocked: decision = ${decoded.decision}`);
+    throw new Error(
+      `Execution blocked: decision = ${decoded.decision}`
+    );
   }
 
   // --------------------------------------
-  // ✅ 6. EXECUTE
+  // ✅ 8. EXECUTE
   // --------------------------------------
 
   const result = await executor(
@@ -71,17 +110,7 @@ export async function executeWithVerification(
     decoded.decision_input
   );
 
-  // --------------------------------------
-  // 🔒 7. MARK EVENT USED (AFTER SUCCESS)
-  // --------------------------------------
-
-  executedEvents.add(payload.event_id);
-
-  // --------------------------------------
-  // ✅ RETURN
-  // --------------------------------------
-
-  return {
+  const finalResult = {
     status: "EXECUTED",
     action: payload.action,
     event_id: payload.event_id,
@@ -89,4 +118,27 @@ export async function executeWithVerification(
     executed: true,
     result,
   };
+
+  // --------------------------------------
+  // 🔒 9. STORE RESULT (IDEMPOTENCY)
+  // --------------------------------------
+
+  storeResult(payload.event_id, payload, finalResult);
+
+  // --------------------------------------
+  // 🧾 10. AUDIT LOG
+  // --------------------------------------
+
+  logExecutionEvent({
+    event_id: payload.event_id,
+    decision_hash: decoded.decision_hash,
+    action: payload.action,
+    status: "EXECUTED",
+  });
+
+  // --------------------------------------
+  // ✅ RETURN
+  // --------------------------------------
+
+  return finalResult;
 }

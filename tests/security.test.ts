@@ -24,6 +24,7 @@ jest.mock("../core/intentLoader", () => ({
             operator: "eq",
             value: true,
           },
+          actions: ["merge_pr"], // ✅ required for gateway
         },
       ],
     },
@@ -61,14 +62,14 @@ function getValidExecutionRequest() {
     intent_version: "v1",
     input: {
       system_data: {
-        always: true, // ✅ correct shape → rule matches → ALLOW
+        always: true, // ✅ matches rule
       },
     } as any,
   });
 
   return {
     decision_token: decision.decision_token,
-    action: "merge_pr",
+    action: "merge_pr", // ✅ allowed
     event_id: "evt_" + eventCounter,
   };
 }
@@ -92,8 +93,8 @@ describe("Security Tests (Token Based)", () => {
   test("should reject tampered token", async () => {
     const request = getValidExecutionRequest();
 
-    // tamper token
-    request.decision_token = request.decision_token + "tampered";
+    request.decision_token =
+      request.decision_token + "tampered";
 
     await expect(
       executeWithVerification(request as any, mockExecutor)
@@ -107,18 +108,39 @@ describe("Security Tests (Token Based)", () => {
 
     await expect(
       executeWithVerification(request as any, mockExecutor)
-    ).rejects.toThrow("Action not allowed");
+    ).rejects.toThrow("not allowed");
   });
 
-  test("should reject replay attack", async () => {
+  // ✅ UPDATED: idempotency (NOT replay failure anymore)
+  test("should be idempotent on retry", async () => {
     const request = getValidExecutionRequest();
 
-    // first execution → success
+    const first = await executeWithVerification(
+      request as any,
+      mockExecutor
+    );
+
+    const second = await executeWithVerification(
+      request as any,
+      mockExecutor
+    );
+
+    expect(second).toEqual(first);
+  });
+
+  // ✅ NEW: ensure mismatch is still rejected
+  test("should reject idempotency violation (different payload)", async () => {
+    const request = getValidExecutionRequest();
+
     await executeWithVerification(request as any, mockExecutor);
 
-    // second execution → must fail
+    const tampered = {
+      ...request,
+      action: "different_action",
+    };
+
     await expect(
-      executeWithVerification(request as any, mockExecutor)
-    ).rejects.toThrow("Replay detected");
+      executeWithVerification(tampered as any, mockExecutor)
+    ).rejects.toThrow("Idempotency violation");
   });
 });

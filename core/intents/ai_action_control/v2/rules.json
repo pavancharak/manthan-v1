@@ -11,11 +11,6 @@
         "operator": "eq",
         "value": "high"
       },
-      "requires": {
-        "field": "has_guardrails",
-        "operator": "eq",
-        "value": false
-      },
       "actions": []
     },
     {
@@ -31,20 +26,8 @@
       "actions": ["require_human_review"]
     },
     {
-      "id": "allow-safe-actions",
+      "id": "guardrails-enforced",
       "group": 3,
-      "order": 1,
-      "outcome": "ALLOW",
-      "condition": {
-        "field": "risk_level",
-        "operator": "eq",
-        "value": "low"
-      },
-      "actions": ["execute_ai_action"]
-    },
-    {
-      "id": "cover-has-guardrails",
-      "group": 99,
       "order": 1,
       "outcome": "ESCALATE",
       "condition": {
@@ -53,6 +36,18 @@
         "value": true
       },
       "actions": ["require_human_review"]
+    },
+    {
+      "id": "allow-safe-actions",
+      "group": 4,
+      "order": 1,
+      "outcome": "ALLOW",
+      "condition": {
+        "field": "risk_level",
+        "operator": "eq",
+        "value": "low"
+      },
+      "actions": ["execute_ai_action"]
     }
   ]
 }
