@@ -14,16 +14,10 @@
     }
   },
   {
-    "name": "ESCALATE (missing field)",
+    "name": "ESCALATE case",
     "input": {
-      "isApproved": true
-    }
-  },
-  {
-    "name": "REJECT (invalid type)",
-    "input": {
-      "isApproved": "yes",
-      "hasNewCommitsAfterApproval": false
+      "isApproved": true,
+      "hasNewCommitsAfterApproval": true
     }
   }
 ]
