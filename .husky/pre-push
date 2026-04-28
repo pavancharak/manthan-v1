@@ -1,3 +1,13 @@
 #!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+echo "🔍 Running Manthan governance checks..."
 
 npm run check
+
+if [ $? -ne 0 ]; then
+  echo "❌ Push blocked due to governance validation failure"
+  exit 1
+fi
+
+echo "✅ Governance checks passed"

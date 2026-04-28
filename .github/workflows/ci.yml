@@ -1,4 +1,4 @@
-name: Manthan CI
+name: Manthan Strict CI
 
 on:
   push:
@@ -15,37 +15,72 @@ jobs:
       MANTHAN_PUBLIC_KEY: ${{ secrets.MANTHAN_PUBLIC_KEY }}
 
     steps:
-      # --------------------------------------
-      # Checkout
-      # --------------------------------------
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # --------------------------------------
-      # Node setup
-      # --------------------------------------
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: "npm"
 
-      # --------------------------------------
-      # Install (deterministic)
-      # --------------------------------------
       - name: Install dependencies
         run: npm ci
 
       # --------------------------------------
-      # Protect v1
+      # 🔒 Version discipline
       # --------------------------------------
-      - name: Check v1 immutability
-        run: |
-          git fetch origin main
-          npm run check:v1
+      - name: Check immutable versions
+        run: npm run check:immutable
 
       # --------------------------------------
-      # 🔒 FULL SYSTEM CHECK (single source)
+      # 🔒 Artifact determinism
       # --------------------------------------
-      - name: Run Manthan system check
-        run: npm run check
+      - name: Generate artifacts
+        run: npm run generate:artifacts
+
+      - name: Ensure artifacts committed
+        run: git diff --exit-code core/artifactRegistry.ts
+
+      # --------------------------------------
+      # 🔒 Type safety
+      # --------------------------------------
+      - name: Type check
+        run: npx tsc --noEmit
+
+      # --------------------------------------
+      # 🔒 Tests
+      # --------------------------------------
+      - name: Run tests
+        run: npm test
+
+      # --------------------------------------
+      # 🔒 Determinism validation
+      # --------------------------------------
+      - name: Verify decision system
+        run: npm run verify
+
+      # --------------------------------------
+      # 🔒 Rule coverage enforcement
+      # --------------------------------------
+      - name: Run simulation
+        run: npm run simulate
+
+      # --------------------------------------
+      # 🔥 Fail on unused rules (STRICT)
+      # --------------------------------------
+      - name: Enforce rule usage
+        run: |
+          if grep -q "UNUSED RULES" simulation/output.log; then
+            echo "❌ Unused rules detected"
+            exit 1
+          fi
+
+      # --------------------------------------
+      # 🔥 Audit artifact (optional)
+      # --------------------------------------
+      - name: Upload simulation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulation-report
+          path: simulation/output.log

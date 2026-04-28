@@ -73,11 +73,73 @@ app.post("/decision", (req, res) => {
       intent: req.body.intent,
       intent_version: req.body.intent_version,
       input: req.body.input,
+      debug: true, // 🔥 ensures trace generation
     });
 
     res.json({
       success: true,
       decision: result,
+    });
+  } catch (err: any) {
+    res.status(400).json({
+      success: false,
+      error: err.message,
+    });
+  }
+});
+
+// --------------------------------------
+// EXPLAIN ENDPOINT
+// --------------------------------------
+
+app.post("/explain", (req, res) => {
+  try {
+    validateDecisionRequest(req.body);
+
+    const result = executeDecisionInputRequest({
+      intent: req.body.intent,
+      intent_version: req.body.intent_version,
+      input: req.body.input,
+      debug: true,
+    });
+
+    const decision = result.decision_result;
+
+    if (decision.status !== "DECIDED") {
+      return res.json({
+        success: false,
+        error: decision.explanation,
+      });
+    }
+
+    // 🔒 Extract deterministic trace from signed token
+    let trace = null;
+
+    try {
+      const parsed = JSON.parse(result.decision_token);
+      trace = parsed.trace || null;
+    } catch {
+      trace = null;
+    }
+
+    res.json({
+      success: true,
+      explanation: {
+        decision: decision.decision,
+        rule_id: decision.rule_id,
+
+        // reasoning
+        reason: decision.explanation.reason,
+
+        // structured rule details
+        rule: decision.explanation.details,
+
+        // execution trace (deterministic)
+        trace,
+
+        // debug summary (optional)
+        debug: decision.debug || null,
+      },
     });
   } catch (err: any) {
     res.status(400).json({

@@ -2,38 +2,35 @@
   "name": "manthan-v1",
   "version": "1.0.0",
   "main": "index.js",
-
   "scripts": {
     "build": "tsc",
-
     "generate:artifacts": "ts-node scripts/buildRegistry.ts",
-
+    "create:version": "node scripts/create-next-version.js",
     "pretest": "npm run generate:artifacts",
     "test": "jest",
-
     "verify": "ts-node scripts/verifyDecisionSystem.ts",
     "simulate": "ts-node simulation/simulator.ts",
-
-    "check": "npm run build && npm run test && npm run verify && npm run simulate",
+    "check:immutable": "node scripts/check-immutable-versions.js",
+    "check:artifacts": "git diff --exit-code core/artifactRegistry.ts",
+    "precheck": "npm run generate:artifacts",
+    "check": "npm run build && npm run test && npm run verify && npm run simulate && npm run check:immutable && npm run check:artifacts",
     "check:fast": "npm run build && npm run test",
-
     "start": "node dist/api/server.js",
     "dev": "ts-node api/server.ts",
     "api": "ts-node api/server.ts",
-
-    "check:v1": "node scripts/check-no-v1-changes.js"
+    "governance": "node scripts/governance/governance-cli.js"
   },
-
   "dependencies": {
     "body-parser": "^1.20.2",
     "dotenv": "^17.4.2",
     "express": "^4.18.2",
+    "inquirer": "^8.2.7",
     "node-fetch": "^2.6.7"
   },
-
   "devDependencies": {
     "@types/body-parser": "^1.19.2",
     "@types/express": "^4.17.17",
+    "@types/inquirer": "^9.0.9",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.0.0",
     "@types/node-fetch": "^2.6.4",
